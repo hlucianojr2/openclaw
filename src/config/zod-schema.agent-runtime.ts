@@ -96,9 +96,29 @@ export const SandboxDockerSchema = z
     containerPrefix: z.string().optional(),
     workdir: SafePathSchema.optional(),
     readOnlyRoot: z.boolean().optional(),
-    tmpfs: z.array(z.string()).optional(),
+    tmpfs: z
+      .array(
+        z
+          .string()
+          .regex(
+            /^\/[a-zA-Z0-9/_.-]+(:(size|mode|uid|gid|nr_inodes|noexec|nosuid|nodev|ro)(=[a-zA-Z0-9]+)?(,(size|mode|uid|gid|nr_inodes|noexec|nosuid|nodev|ro)(=[a-zA-Z0-9]+)?)*)?$/,
+            "expected tmpfs entry: /path or /path:options (allowed options: size, mode, uid, gid, nr_inodes, noexec, nosuid, nodev, ro)",
+          ),
+      )
+      .optional(),
     network: z.string().optional(),
-    user: z.string().optional(),
+    user: z
+      .string()
+      .refine(
+        (v) => {
+          const trimmed = v.trim().toLowerCase();
+          if (trimmed === "root" || trimmed === "0") return false;
+          if (/^0:/.test(trimmed)) return false;
+          return true;
+        },
+        "sandbox user must not be root (0) — running as root inside the container weakens isolation",
+      )
+      .optional(),
     capDrop: z.array(z.string()).optional(),
     env: z.record(z.string(), z.string()).optional(),
     setupCommand: z
@@ -129,7 +149,24 @@ export const SandboxDockerSchema = z
     seccompProfile: z.string().optional(),
     apparmorProfile: z.string().optional(),
     dns: z.array(z.string()).optional(),
-    extraHosts: z.array(z.string()).optional(),
+    extraHosts: z
+      .array(
+        z
+          .string()
+          .regex(
+            /^[a-zA-Z0-9._-]+:[0-9a-fA-F:.]+$/,
+            "expected extraHosts entry in format hostname:ip",
+          )
+          .refine(
+            (v) => {
+              const ip = v.split(":").slice(1).join(":");
+              // Block cloud metadata endpoints (AWS, GCP, Azure)
+              return ip !== "169.254.169.254" && !ip.startsWith("fd00:ec2:");
+            },
+            "cloud metadata IPs (169.254.169.254, fd00:ec2::*) are blocked — SSRF risk",
+          ),
+      )
+      .optional(),
     binds: z.array(z.string()).optional(),
   })
   .strict()
