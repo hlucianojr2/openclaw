@@ -10,6 +10,7 @@ import {
   BlockStreamingCoalesceSchema,
   CliBackendSchema,
   HumanDelaySchema,
+  SafePathSchema,
 } from "./zod-schema.core.js";
 
 export const AgentDefaultsSchema = z
@@ -42,8 +43,8 @@ export const AgentDefaultsSchema = z
           .strict(),
       )
       .optional(),
-    workspace: z.string().optional(),
-    repoRoot: z.string().optional(),
+    workspace: SafePathSchema.optional(),
+    repoRoot: SafePathSchema.optional(),
     skipBootstrap: z.boolean().optional(),
     bootstrapMaxChars: z.number().int().positive().optional(),
     bootstrapTotalMaxChars: z.number().int().positive().optional(),

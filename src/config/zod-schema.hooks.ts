@@ -1,5 +1,6 @@
 import path from "node:path";
 import { z } from "zod";
+import { SafePathSchema } from "./zod-schema.core.js";
 import { sensitive } from "./zod-schema.sensitive.js";
 
 function isSafeRelativeModulePath(raw: string): boolean {
@@ -113,7 +114,7 @@ export const InternalHooksSchema = z
     entries: z.record(z.string(), HookConfigSchema).optional(),
     load: z
       .object({
-        extraDirs: z.array(z.string()).optional(),
+        extraDirs: z.array(SafePathSchema).optional(),
       })
       .strict()
       .optional(),

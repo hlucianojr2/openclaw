@@ -2,9 +2,12 @@ import { z } from "zod";
 import { parseDurationMs } from "../cli/parse-duration.js";
 import { AgentModelSchema } from "./zod-schema.agent-model.js";
 import {
+  DockerImageSchema,
+  ExecutableTokenSchema,
   GroupChatSchema,
   HumanDelaySchema,
   IdentitySchema,
+  SafePathSchema,
   ToolsLinksSchema,
   ToolsMediaSchema,
 } from "./zod-schema.core.js";
@@ -89,16 +92,21 @@ export const HeartbeatSchema = z
 
 export const SandboxDockerSchema = z
   .object({
-    image: z.string().optional(),
+    image: DockerImageSchema.optional(),
     containerPrefix: z.string().optional(),
-    workdir: z.string().optional(),
+    workdir: SafePathSchema.optional(),
     readOnlyRoot: z.boolean().optional(),
     tmpfs: z.array(z.string()).optional(),
     network: z.string().optional(),
     user: z.string().optional(),
     capDrop: z.array(z.string()).optional(),
     env: z.record(z.string(), z.string()).optional(),
-    setupCommand: z.string().optional(),
+    setupCommand: z
+      .string()
+      .max(1024, "setupCommand too long (max 1024 chars)")
+      .refine((v) => !v.includes("\0"), "setupCommand must not contain null bytes")
+      .refine((v) => !/[\r\n]/.test(v), "setupCommand must not contain control characters")
+      .optional(),
     pidsLimit: z.number().int().positive().optional(),
     memory: z.union([z.string(), z.number()]).optional(),
     memorySwap: z.union([z.string(), z.number()]).optional(),
@@ -312,9 +320,9 @@ const ToolExecBaseShape = {
   host: z.enum(["sandbox", "gateway", "node"]).optional(),
   security: z.enum(["deny", "allowlist", "full"]).optional(),
   ask: z.enum(["off", "on-miss", "always"]).optional(),
-  node: z.string().optional(),
-  pathPrepend: z.array(z.string()).optional(),
-  safeBins: z.array(z.string()).optional(),
+  node: ExecutableTokenSchema.optional(),
+  pathPrepend: z.array(SafePathSchema).optional(),
+  safeBins: z.array(ExecutableTokenSchema).optional(),
   backgroundMs: z.number().int().positive().optional(),
   timeoutSec: z.number().int().positive().optional(),
   cleanupMs: z.number().int().positive().optional(),
@@ -347,7 +355,7 @@ export const AgentSandboxSchema = z
     sessionToolsVisibility: z.union([z.literal("spawned"), z.literal("all")]).optional(),
     scope: z.union([z.literal("session"), z.literal("agent"), z.literal("shared")]).optional(),
     perSession: z.boolean().optional(),
-    workspaceRoot: z.string().optional(),
+    workspaceRoot: SafePathSchema.optional(),
     docker: SandboxDockerSchema,
     browser: SandboxBrowserSchema,
     prune: SandboxPruneSchema,
@@ -509,8 +517,8 @@ export const AgentEntrySchema = z
     id: z.string(),
     default: z.boolean().optional(),
     name: z.string().optional(),
-    workspace: z.string().optional(),
-    agentDir: z.string().optional(),
+    workspace: SafePathSchema.optional(),
+    agentDir: SafePathSchema.optional(),
     model: AgentModelSchema.optional(),
     skills: z.array(z.string()).optional(),
     memorySearch: MemorySearchSchema,

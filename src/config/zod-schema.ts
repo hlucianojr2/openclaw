@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ToolsSchema } from "./zod-schema.agent-runtime.js";
 import { AgentsSchema, AudioSchema, BindingsSchema, BroadcastSchema } from "./zod-schema.agents.js";
 import { ApprovalsSchema } from "./zod-schema.approvals.js";
-import { HexColorSchema, ModelsConfigSchema } from "./zod-schema.core.js";
+import { ExecutableTokenSchema, HexColorSchema, ModelsConfigSchema, SafePathSchema } from "./zod-schema.core.js";
 import { HookMappingSchema, HooksGmailSchema, InternalHooksSchema } from "./zod-schema.hooks.js";
 import { ChannelsSchema } from "./zod-schema.providers.js";
 import { sensitive } from "./zod-schema.sensitive.js";
@@ -73,7 +73,7 @@ const MemoryQmdLimitsSchema = z
 
 const MemoryQmdSchema = z
   .object({
-    command: z.string().optional(),
+    command: ExecutableTokenSchema.optional(),
     searchMode: z.union([z.literal("query"), z.literal("search"), z.literal("vsearch")]).optional(),
     includeDefaultMemory: z.boolean().optional(),
     paths: z.array(MemoryQmdPathSchema).optional(),
@@ -214,7 +214,7 @@ export const OpenClawSchema = z
         remoteCdpTimeoutMs: z.number().int().nonnegative().optional(),
         remoteCdpHandshakeTimeoutMs: z.number().int().nonnegative().optional(),
         color: z.string().optional(),
-        executablePath: z.string().optional(),
+        executablePath: ExecutableTokenSchema.optional(),
         headless: z.boolean().optional(),
         noSandbox: z.boolean().optional(),
         attachOnly: z.boolean().optional(),
@@ -312,7 +312,7 @@ export const OpenClawSchema = z
     hooks: z
       .object({
         enabled: z.boolean().optional(),
-        path: z.string().optional(),
+        path: SafePathSchema.optional(),
         token: z.string().optional().register(sensitive),
         defaultSessionKey: z.string().optional(),
         allowRequestSessionKey: z.boolean().optional(),
@@ -320,7 +320,7 @@ export const OpenClawSchema = z
         allowedAgentIds: z.array(z.string()).optional(),
         maxBodyBytes: z.number().int().positive().optional(),
         presets: z.array(z.string()).optional(),
-        transformsDir: z.string().optional(),
+        transformsDir: SafePathSchema.optional(),
         mappings: z.array(HookMappingSchema).optional(),
         gmail: HooksGmailSchema,
         internal: InternalHooksSchema,
@@ -479,9 +479,9 @@ export const OpenClawSchema = z
           .object({
             enabled: z.boolean().optional(),
             autoGenerate: z.boolean().optional(),
-            certPath: z.string().optional(),
-            keyPath: z.string().optional(),
-            caPath: z.string().optional(),
+            certPath: SafePathSchema.optional(),
+            keyPath: SafePathSchema.optional(),
+            caPath: SafePathSchema.optional(),
           })
           .optional(),
         http: z
@@ -564,7 +564,7 @@ export const OpenClawSchema = z
         allowBundled: z.array(z.string()).optional(),
         load: z
           .object({
-            extraDirs: z.array(z.string()).optional(),
+            extraDirs: z.array(SafePathSchema).optional(),
             watch: z.boolean().optional(),
             watchDebounceMs: z.number().int().min(0).optional(),
           })
@@ -602,7 +602,7 @@ export const OpenClawSchema = z
         deny: z.array(z.string()).optional(),
         load: z
           .object({
-            paths: z.array(z.string()).optional(),
+            paths: z.array(SafePathSchema).optional(),
           })
           .strict()
           .optional(),

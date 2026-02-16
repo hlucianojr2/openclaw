@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isSafeExecutableValue } from "../infra/exec-safety.js";
+import { isSafeExecutableValue, isSafePathValue } from "../infra/exec-safety.js";
 import { createAllowDenyChannelRulesSchema } from "./zod-schema.allowdeny.js";
 import { sensitive } from "./zod-schema.sensitive.js";
 
@@ -240,6 +240,27 @@ export const TtsConfigSchema = z
   .strict()
   .optional();
 
+export const ExecutableTokenSchema = z
+  .string()
+  .refine(isSafeExecutableValue, "expected safe executable name or path");
+
+export const SafePathSchema = z
+  .string()
+  .refine(isSafePathValue, "expected safe filesystem path (no shell metacharacters or control characters)");
+
+/**
+ * Validates Docker image names.
+ * Allows: alphanumeric, dashes, dots, underscores, slashes (registry/repo),
+ * optional tag (:tag) or digest (@sha256:...). Max 256 chars.
+ */
+export const DockerImageSchema = z
+  .string()
+  .max(256, "Docker image name too long")
+  .regex(
+    /^[a-z0-9]([a-z0-9._\/-]*[a-z0-9])?(:[a-zA-Z0-9][a-zA-Z0-9._-]*)?(@sha256:[a-f0-9]{64})?$/,
+    "expected valid Docker image name (e.g. debian:bookworm-slim, myregistry.io/myimage:latest)",
+  );
+
 export const HumanDelaySchema = z
   .object({
     mode: z.union([z.literal("off"), z.literal("natural"), z.literal("custom")]).optional(),
@@ -250,7 +271,7 @@ export const HumanDelaySchema = z
 
 export const CliBackendSchema = z
   .object({
-    command: z.string(),
+    command: ExecutableTokenSchema,
     args: z.array(z.string()).optional(),
     output: z.union([z.literal("json"), z.literal("text"), z.literal("jsonl")]).optional(),
     resumeOutput: z.union([z.literal("json"), z.literal("text"), z.literal("jsonl")]).optional(),
@@ -401,10 +422,6 @@ export const TranscribeAudioSchema = z
 
 export const HexColorSchema = z.string().regex(/^#?[0-9a-fA-F]{6}$/, "expected hex color (RRGGBB)");
 
-export const ExecutableTokenSchema = z
-  .string()
-  .refine(isSafeExecutableValue, "expected safe executable name or path");
-
 export const MediaUnderstandingScopeSchema = createAllowDenyChannelRulesSchema();
 
 export const MediaUnderstandingCapabilitiesSchema = z
@@ -442,7 +459,7 @@ export const MediaUnderstandingModelSchema = z
     model: z.string().optional(),
     capabilities: MediaUnderstandingCapabilitiesSchema,
     type: z.union([z.literal("provider"), z.literal("cli")]).optional(),
-    command: z.string().optional(),
+    command: ExecutableTokenSchema.optional(),
     args: z.array(z.string()).optional(),
     prompt: z.string().optional(),
     maxChars: z.number().int().positive().optional(),
@@ -492,7 +509,7 @@ export const ToolsMediaSchema = z
 export const LinkModelSchema = z
   .object({
     type: z.literal("cli").optional(),
-    command: z.string().min(1),
+    command: ExecutableTokenSchema,
     args: z.array(z.string()).optional(),
     timeoutSeconds: z.number().int().positive().optional(),
   })
