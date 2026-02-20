@@ -31,11 +31,11 @@
 | 2     | 2.1  | Mandatory security step in onboarding                       | done        | —   | onboarding-wizard | 2026-02-20 | Wizard enforces auth |
 | 2     | 2.2  | Gateway config wizard mandatory auth                        | done        | —   | onboarding-wizard | 2026-02-20 | Wizard enforces auth |
 | 2     | 2.3  | Token generation helper                                     | done        | —   | onboarding-wizard | 2026-02-20 | Wizard enforces auth |
-| 4     | 4.1  | Control UI HTTP auth                                        | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
-| 4     | 4.2  | Remove `allowInsecureAuth` / `dangerouslyDisableDeviceAuth` | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
-| 5     | 5.1  | Remove IP-based canvas auth fallback                        | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
-| 5     | 5.2  | Remove local direct request canvas bypass                   | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
-| 6     | 6.1  | Add auth to all plugin routes                               | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
+| 4     | 4.1  | Control UI HTTP auth                                        | done        | —   | auth-hardening    | 2026-02-20 | 410 tests pass ✓     |
+| 4     | 4.2  | Remove `allowInsecureAuth` / `dangerouslyDisableDeviceAuth` | done        | —   | auth-hardening    | 2026-02-20 | Flags deprecated ✓   |
+| 5     | 5.1  | Remove IP-based canvas auth fallback                        | done        | —   | auth-hardening    | 2026-02-20 | IP bypass removed ✓  |
+| 5     | 5.2  | Remove local direct request canvas bypass                   | done        | —   | auth-hardening    | 2026-02-20 | Local bypass gone ✓  |
+| 6     | 6.1  | Add auth to all plugin routes                               | done        | —   | auth-hardening    | 2026-02-20 | All routes auth ✓    |
 | 6     | 6.2  | Update plugin documentation                                 | not-started | —   | docs-writer       | —          | Depends: 6.1         |
 | 7     | 7.1  | Change `exemptLoopback` default to `false`                  | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
 | 7     | 7.2  | Remove explicit `exemptLoopback: true` overrides            | not-started | —   | auth-hardening    | —          | Depends: 7.1         |
@@ -60,19 +60,20 @@
 ## Summary
 
 - **Total Tasks**: 30
-- **Done**: 9
+- **Done**: 14
 - **In Progress**: 0
 - **Blocked**: 0
-- **Remaining**: 21
+- **Remaining**: 16
 
 ---
 
 ## Sprint Log
 
-| Date       | Sprint   | Action      | Details                             |
-| ---------- | -------- | ----------- | ----------------------------------- |
-| 2026-02-20 | Sprint 3 | Completed   | Phases 2 & 9 (onboarding + hooks) ✓ |
-| 2026-02-20 | Sprint 2 | Completed   | Phase 3 verified, 1,182 tests ✓     |
-| 2026-02-20 | Sprint 1 | Completed   | Phase 1 verified, 36/36 tests ✓     |
-| 2026-02-19 | Sprint 1 | Started     | Phase 1 (security schema) kickoff   |
-| 2026-02-18 | —        | Initialized | Sprint tracker created              |
+| Date       | Sprint   | Action      | Details                                   |
+| ---------- | -------- | ----------- | ----------------------------------------- |
+| 2026-02-20 | Sprint 4 | Completed   | Phases 4-6 (Control/Canvas/Plugin auth) ✓ |
+| 2026-02-20 | Sprint 3 | Completed   | Phases 2 & 9 (onboarding + hooks) ✓       |
+| 2026-02-20 | Sprint 2 | Completed   | Phase 3 verified, 1,182 tests ✓           |
+| 2026-02-20 | Sprint 1 | Completed   | Phase 1 verified, 36/36 tests ✓           |
+| 2026-02-19 | Sprint 1 | Started     | Phase 1 (security schema) kickoff         |
+| 2026-02-18 | —        | Initialized | Sprint tracker created                    |
