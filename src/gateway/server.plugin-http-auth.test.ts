@@ -96,7 +96,7 @@ async function dispatchRequest(
 }
 
 describe("gateway plugin HTTP auth boundary", () => {
-  test("requires gateway auth for /api/channels/* plugin routes and allows authenticated pass-through", async () => {
+  test("requires gateway auth for all plugin routes including /api/channels/*", async () => {
     const resolvedAuth: ResolvedGatewayAuth = {
       mode: "token",
       token: "test-token",
@@ -126,7 +126,6 @@ describe("gateway plugin HTTP auth boundary", () => {
 
         const server = createGatewayHttpServer({
           canvasHost: null,
-          clients: new Set(),
           controlUiEnabled: false,
           controlUiBasePath: "/__control__",
           openAiChatCompletionsEnabled: false,
@@ -158,14 +157,28 @@ describe("gateway plugin HTTP auth boundary", () => {
         expect(authenticated.res.statusCode).toBe(200);
         expect(authenticated.getBody()).toContain('"route":"channel"');
 
+        // Phase 6: All plugin routes now require authentication (not just /api/channels/*)
         const unauthenticatedPublic = createResponse();
         await dispatchRequest(
           server,
           createRequest({ path: "/plugin/public" }),
           unauthenticatedPublic.res,
         );
-        expect(unauthenticatedPublic.res.statusCode).toBe(200);
-        expect(unauthenticatedPublic.getBody()).toContain('"route":"public"');
+        expect(unauthenticatedPublic.res.statusCode).toBe(401);
+        expect(unauthenticatedPublic.getBody()).toContain("Unauthorized");
+        expect(handlePluginRequest).toHaveBeenCalledTimes(1);
+
+        const authenticatedPublic = createResponse();
+        await dispatchRequest(
+          server,
+          createRequest({
+            path: "/plugin/public",
+            authorization: "Bearer test-token",
+          }),
+          authenticatedPublic.res,
+        );
+        expect(authenticatedPublic.res.statusCode).toBe(200);
+        expect(authenticatedPublic.getBody()).toContain('"route":"public"');
 
         expect(handlePluginRequest).toHaveBeenCalledTimes(2);
       },

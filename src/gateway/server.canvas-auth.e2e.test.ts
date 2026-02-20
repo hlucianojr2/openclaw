@@ -129,7 +129,6 @@ describe("gateway canvas host auth", () => {
 
         const httpServer = createGatewayHttpServer({
           canvasHost,
-          clients,
           controlUiEnabled: false,
           controlUiBasePath: "/__control__",
           openAiChatCompletionsEnabled: false,
@@ -143,7 +142,6 @@ describe("gateway canvas host auth", () => {
           httpServer,
           wss,
           canvasHost,
-          clients,
           resolvedAuth,
         });
 
@@ -263,7 +261,6 @@ describe("gateway canvas host auth", () => {
         },
       },
       run: async () => {
-        const clients = new Set<GatewayWsClient>();
         const rateLimiter = createAuthRateLimiter({
           maxAttempts: 1,
           windowMs: 60_000,
@@ -287,7 +284,6 @@ describe("gateway canvas host auth", () => {
 
         const httpServer = createGatewayHttpServer({
           canvasHost,
-          clients,
           controlUiEnabled: false,
           controlUiBasePath: "/__control__",
           openAiChatCompletionsEnabled: false,
@@ -302,7 +298,6 @@ describe("gateway canvas host auth", () => {
           httpServer,
           wss,
           canvasHost,
-          clients,
           resolvedAuth,
           rateLimiter,
         });

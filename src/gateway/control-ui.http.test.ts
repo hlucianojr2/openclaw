@@ -28,7 +28,7 @@ describe("handleControlUiHttpRequest", () => {
     try {
       await fs.writeFile(path.join(tmp, "index.html"), "<html></html>\n");
       const { res, setHeader } = makeResponse();
-      const handled = handleControlUiHttpRequest(
+      const handled = await handleControlUiHttpRequest(
         { url: "/", method: "GET" } as IncomingMessage,
         res,
         {
@@ -53,7 +53,7 @@ describe("handleControlUiHttpRequest", () => {
       const html = "<html><head></head><body>Hello</body></html>\n";
       await fs.writeFile(path.join(tmp, "index.html"), html);
       const { res, end } = makeResponse();
-      const handled = handleControlUiHttpRequest(
+      const handled = await handleControlUiHttpRequest(
         { url: "/", method: "GET" } as IncomingMessage,
         res,
         {
@@ -76,7 +76,7 @@ describe("handleControlUiHttpRequest", () => {
     try {
       await fs.writeFile(path.join(tmp, "index.html"), "<html></html>\n");
       const { res, end } = makeResponse();
-      const handled = handleControlUiHttpRequest(
+      const handled = await handleControlUiHttpRequest(
         { url: CONTROL_UI_BOOTSTRAP_CONFIG_PATH, method: "GET" } as IncomingMessage,
         res,
         {
@@ -109,7 +109,7 @@ describe("handleControlUiHttpRequest", () => {
     try {
       await fs.writeFile(path.join(tmp, "index.html"), "<html></html>\n");
       const { res, end } = makeResponse();
-      const handled = handleControlUiHttpRequest(
+      const handled = await handleControlUiHttpRequest(
         { url: `/openclaw${CONTROL_UI_BOOTSTRAP_CONFIG_PATH}`, method: "GET" } as IncomingMessage,
         res,
         {

@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import type { OpenClawConfig } from "../config/config.js";
+import type { AuthRateLimiter } from "./auth-rate-limit.js";
+import type { ResolvedGatewayAuth } from "./auth.js";
 import { resolveControlUiRootSync } from "../infra/control-ui-assets.js";
 import { DEFAULT_ASSISTANT_IDENTITY, resolveAssistantIdentity } from "./assistant-identity.js";
 import {
@@ -15,6 +17,7 @@ import {
   normalizeControlUiBasePath,
   resolveAssistantAvatarUrl,
 } from "./control-ui-shared.js";
+import { authorizeGatewayBearerRequestOrReply } from "./http-auth-helpers.js";
 
 const ROOT_PREFIX = "/";
 
@@ -23,6 +26,9 @@ export type ControlUiRequestOptions = {
   config?: OpenClawConfig;
   agentId?: string;
   root?: ControlUiRootState;
+  auth?: ResolvedGatewayAuth;
+  trustedProxies?: string[];
+  rateLimiter?: AuthRateLimiter;
 };
 
 export type ControlUiRootState =
@@ -89,11 +95,17 @@ function isValidAgentId(agentId: string): boolean {
   return /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(agentId);
 }
 
-export function handleControlUiAvatarRequest(
+export async function handleControlUiAvatarRequest(
   req: IncomingMessage,
   res: ServerResponse,
-  opts: { basePath?: string; resolveAvatar: (agentId: string) => ControlUiAvatarResolution },
-): boolean {
+  opts: {
+    basePath?: string;
+    resolveAvatar: (agentId: string) => ControlUiAvatarResolution;
+    auth?: ResolvedGatewayAuth;
+    trustedProxies?: string[];
+    rateLimiter?: AuthRateLimiter;
+  },
+): Promise<boolean> {
   const urlRaw = req.url;
   if (!urlRaw) {
     return false;
@@ -110,6 +122,20 @@ export function handleControlUiAvatarRequest(
     : `${CONTROL_UI_AVATAR_PREFIX}/`;
   if (!pathname.startsWith(pathWithBase)) {
     return false;
+  }
+
+  // Require authentication for all Control UI avatar requests
+  if (opts.auth) {
+    const authorized = await authorizeGatewayBearerRequestOrReply({
+      req,
+      res,
+      auth: opts.auth,
+      trustedProxies: opts.trustedProxies,
+      rateLimiter: opts.rateLimiter,
+    });
+    if (!authorized) {
+      return true;
+    }
   }
 
   applyControlUiSecurityHeaders(res);
@@ -186,11 +212,11 @@ function isSafeRelativePath(relPath: string) {
   return true;
 }
 
-export function handleControlUiHttpRequest(
+export async function handleControlUiHttpRequest(
   req: IncomingMessage,
   res: ServerResponse,
   opts?: ControlUiRequestOptions,
-): boolean {
+): Promise<boolean> {
   const urlRaw = req.url;
   if (!urlRaw) {
     return false;
@@ -210,6 +236,20 @@ export function handleControlUiHttpRequest(
     if (pathname === "/ui" || pathname.startsWith("/ui/")) {
       applyControlUiSecurityHeaders(res);
       respondNotFound(res);
+      return true;
+    }
+  }
+
+  // Require authentication for all Control UI requests
+  if (opts?.auth) {
+    const authorized = await authorizeGatewayBearerRequestOrReply({
+      req,
+      res,
+      auth: opts.auth,
+      trustedProxies: opts.trustedProxies,
+      rateLimiter: opts.rateLimiter,
+    });
+    if (!authorized) {
       return true;
     }
   }

@@ -70,9 +70,17 @@ export type GatewayControlUiConfig = {
   root?: string;
   /** Allowed browser origins for Control UI/WebChat websocket connections. */
   allowedOrigins?: string[];
-  /** Allow token-only auth over insecure HTTP (default: false). */
+  /**
+   * @deprecated This flag has been removed as part of mandatory authentication enforcement.
+   * All Control UI HTTP requests now require Bearer token authentication.
+   * This field is ignored if present in configuration.
+   */
   allowInsecureAuth?: boolean;
-  /** DANGEROUS: Disable device identity checks for the Control UI (default: false). */
+  /**
+   * @deprecated This flag has been removed as part of mandatory authentication enforcement.
+   * Device identity checks are now always enforced for Control UI WebSocket connections.
+   * This field is ignored if present in configuration.
+   */
   dangerouslyDisableDeviceAuth?: boolean;
 };
 
