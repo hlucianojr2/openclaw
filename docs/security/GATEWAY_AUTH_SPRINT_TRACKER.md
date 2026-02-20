@@ -28,9 +28,9 @@
 | 1     | 1.2  | Add `securityConfigured` to config schema                   | done        | —   | security-schema   | 2026-02-20 | Tests: 36/36 pass ✓  |
 | 3     | 3.1  | Gateway CLI security validation                             | done        | —   | auth-hardening    | 2026-02-20 | Tests: 1,182 pass ✓  |
 | 3     | 3.2  | Server-side security validation (defense-in-depth)          | done        | —   | auth-hardening    | 2026-02-20 | Tests: 1,182 pass ✓  |
-| 2     | 2.1  | Mandatory security step in onboarding                       | not-started | —   | onboarding-wizard | —          | Depends: Phase 1     |
-| 2     | 2.2  | Gateway config wizard mandatory auth                        | not-started | —   | onboarding-wizard | —          | Depends: Phase 1     |
-| 2     | 2.3  | Token generation helper                                     | not-started | —   | onboarding-wizard | —          | Depends: Phase 1     |
+| 2     | 2.1  | Mandatory security step in onboarding                       | done        | —   | onboarding-wizard | 2026-02-20 | Wizard enforces auth |
+| 2     | 2.2  | Gateway config wizard mandatory auth                        | done        | —   | onboarding-wizard | 2026-02-20 | Wizard enforces auth |
+| 2     | 2.3  | Token generation helper                                     | done        | —   | onboarding-wizard | 2026-02-20 | Wizard enforces auth |
 | 4     | 4.1  | Control UI HTTP auth                                        | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
 | 4     | 4.2  | Remove `allowInsecureAuth` / `dangerouslyDisableDeviceAuth` | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
 | 5     | 5.1  | Remove IP-based canvas auth fallback                        | not-started | —   | auth-hardening    | —          | Depends: Phase 3     |
@@ -41,8 +41,8 @@
 | 7     | 7.2  | Remove explicit `exemptLoopback: true` overrides            | not-started | —   | auth-hardening    | —          | Depends: 7.1         |
 | 8     | 8.1  | Remove `isLocalDirectRequest` auth bypass usage             | not-started | —   | auth-hardening    | —          | Depends: Phase 5     |
 | 8     | 8.2  | Update `authorizeGatewayConnect` local bypass               | not-started | —   | auth-hardening    | —          | Depends: 8.1         |
-| 9     | 9.1  | Hooks token startup validation                              | not-started | —   | onboarding-wizard | —          | Depends: Phase 1     |
-| 9     | 9.2  | Hooks token security requirement                            | not-started | —   | onboarding-wizard | —          | Depends: 9.1         |
+| 9     | 9.1  | Hooks token startup validation                              | done        | —   | onboarding-wizard | 2026-02-20 | Hooks secured        |
+| 9     | 9.2  | Hooks token security requirement                            | done        | —   | onboarding-wizard | 2026-02-20 | Hooks secured        |
 | 10    | 10.1 | Critical severity audit checks                              | not-started | —   | security-audit    | —          | Depends: Phases 1-9  |
 | 10    | 10.2 | `--strict` flag for security audit                          | not-started | —   | security-audit    | —          | Depends: 10.1        |
 | 11    | 11.1 | Mandatory auth E2E tests                                    | not-started | —   | test-engineer     | —          | Depends: Phases 3-8  |
@@ -60,18 +60,19 @@
 ## Summary
 
 - **Total Tasks**: 30
-- **Done**: 4
+- **Done**: 9
 - **In Progress**: 0
 - **Blocked**: 0
-- **Remaining**: 26
+- **Remaining**: 21
 
 ---
 
 ## Sprint Log
 
-| Date       | Sprint   | Action      | Details                           |
-| ---------- | -------- | ----------- | --------------------------------- |
-| 2026-02-20 | Sprint 2 | Completed   | Phase 3 verified, 1,182 tests ✓   |
-| 2026-02-20 | Sprint 1 | Completed   | Phase 1 verified, 36/36 tests ✓   |
-| 2026-02-19 | Sprint 1 | Started     | Phase 1 (security schema) kickoff |
-| 2026-02-18 | —        | Initialized | Sprint tracker created            |
+| Date       | Sprint   | Action      | Details                             |
+| ---------- | -------- | ----------- | ----------------------------------- |
+| 2026-02-20 | Sprint 3 | Completed   | Phases 2 & 9 (onboarding + hooks) ✓ |
+| 2026-02-20 | Sprint 2 | Completed   | Phase 3 verified, 1,182 tests ✓     |
+| 2026-02-20 | Sprint 1 | Completed   | Phase 1 verified, 36/36 tests ✓     |
+| 2026-02-19 | Sprint 1 | Started     | Phase 1 (security schema) kickoff   |
+| 2026-02-18 | —        | Initialized | Sprint tracker created              |
