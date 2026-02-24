@@ -11,11 +11,12 @@
 
 import { app } from "electron";
 import path from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import type { ContainerManager } from "../docker/container-manager.js";
 import type { DockerEngineClient } from "../docker/engine-client.js";
 import { OPENCLAW_IMAGE, DEFAULT_GATEWAY_PORT, DEFAULT_BRIDGE_PORT } from "../../shared/constants.js";
+import type { ChannelSelection } from "../../shared/ipc-types.js";
 
 export type LLMProvider = "anthropic" | "google-gemini" | "openai" | "ollama";
 
@@ -31,6 +32,10 @@ export interface InstallerConfig {
   bridgePort?: number;
   // Voice guide
   voiceEnabled: boolean;
+  // Wizard step 6 — selected skills (IDs from skill-catalog)
+  selectedSkills?: string[];
+  // Wizard step 7 — selected channels with their configs
+  selectedChannels?: ChannelSelection[];
 }
 
 export type InstallStage =
@@ -39,6 +44,8 @@ export type InstallStage =
   | "creating-network"
   | "creating-volumes"
   | "creating-container"
+  | "installing-skills"
+  | "configuring-channels"
   | "starting"
   | "health-check"
   | "done"
@@ -120,11 +127,25 @@ export class InstallerEngine {
         bridgePort: config.bridgePort ?? DEFAULT_BRIDGE_PORT,
       });
 
-      // Stage 6: Start
+      // Stage 6: Install skills (write skill list to config volume before start)
+      const skills = config.selectedSkills ?? [];
+      if (skills.length > 0) {
+        onProgress({ stage: "installing-skills", percent: 72, message: `Queueing ${skills.length} skill(s) for installation…` });
+        await this.writeSkillConfig(configDir, skills);
+      }
+
+      // Stage 7: Configure channels
+      const channels = config.selectedChannels ?? [];
+      if (channels.length > 0) {
+        onProgress({ stage: "configuring-channels", percent: 78, message: `Applying configuration for ${channels.length} channel(s)…` });
+        await this.writeChannelConfig(configDir, config, channels);
+      }
+
+      // Stage 8: Start
       onProgress({ stage: "starting", percent: 85, message: "Starting OpenClaw environment…" });
       await this.containers.startEnvironment();
 
-      // Stage 7: Health check
+      // Stage 9: Health check
       onProgress({ stage: "health-check", percent: 92, message: "Waiting for services to become ready…" });
       await this.waitForHealth(15_000);
 
@@ -152,6 +173,33 @@ export class InstallerEngine {
       stream.on("error", reject);
       stream.resume();
     });
+  }
+
+  /**
+   * Write selected skill IDs to a JSON file in the config dir so the container
+   * can auto-install them on first boot via openclaw-startup-skills.json.
+   */
+  private async writeSkillConfig(configDir: string, skills: string[]): Promise<void> {
+    const filePath = path.join(configDir, "openclaw-startup-skills.json");
+    await writeFile(filePath, JSON.stringify({ skills }, null, 2), "utf8");
+  }
+
+  /**
+   * Write channel configuration to the config dir as openclaw-channels.json.
+   * Keys are channel IDs; values are their config maps (tokens, credentials, etc.).
+   * Sensitive values are written to the volume — not transmitted over IPC after setup.
+   */
+  private async writeChannelConfig(
+    configDir: string,
+    _installerCfg: InstallerConfig,
+    channels: import("../../shared/ipc-types.js").ChannelSelection[],
+  ): Promise<void> {
+    const channelEntries: Record<string, Record<string, string>> = {};
+    for (const ch of channels) {
+      channelEntries[ch.channelId] = ch.config;
+    }
+    const filePath = path.join(configDir, "openclaw-channels.json");
+    await writeFile(filePath, JSON.stringify({ channels: channelEntries }, null, 2), "utf8");
   }
 }
 

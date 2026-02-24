@@ -9,6 +9,8 @@ import { DockerInstaller } from "./docker-installer.js";
 import { VoiceGuide } from "./voice-guide.js";
 import { GitHubBackupSetup } from "./github-setup.js";
 import { InstallerEngine, type InstallerConfig } from "./installer-engine.js";
+import { SKILL_CATALOG } from "./skill-catalog.js";
+import { CHANNEL_CATALOG, validateChannelConfig } from "./channel-catalog.js";
 import type { DockerEngineClient } from "../docker/engine-client.js";
 import type { ContainerManager } from "../docker/container-manager.js";
 
@@ -96,4 +98,42 @@ export function registerInstallerIpcHandlers(
       event.sender.send(IPC_CHANNELS.INSTALL_PROGRESS, progress);
     });
   });
+
+  // ─── Skill Catalog (Wizard Step 6) ─────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.INSTALL_GET_SKILL_CATALOG, () => {
+    return SKILL_CATALOG;
+  });
+
+  // ─── Channel Catalog (Wizard Step 7) ───────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.INSTALL_GET_CHANNEL_CATALOG, () => {
+    return CHANNEL_CATALOG;
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.INSTALL_CHANNEL_VALIDATE,
+    (_event, channelId: unknown, config: unknown) => {
+      if (typeof channelId !== "string") {
+        return { valid: false, error: "channelId must be a string" };
+      }
+      if (typeof config !== "object" || config === null || Array.isArray(config)) {
+        return { valid: false, error: "config must be an object" };
+      }
+      // Coerce values to strings (renderer may send mixed types)
+      const safeConfig: Record<string, string> = {};
+      for (const [k, v] of Object.entries(config as Record<string, unknown>)) {
+        if (v === null || v === undefined) {
+          safeConfig[k] = "";
+        } else if (typeof v === "string") {
+          safeConfig[k] = v;
+        } else if (typeof v === "number" || typeof v === "boolean") {
+          safeConfig[k] = String(v);
+        } else {
+          safeConfig[k] = JSON.stringify(v);
+        }
+      }
+      return validateChannelConfig(channelId, safeConfig);
+    },
+  );
 }
