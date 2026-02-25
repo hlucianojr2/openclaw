@@ -23,7 +23,8 @@ import type { SessionManager } from "./session-manager.js";
 import { isBiometricAvailable, promptBiometric } from "./biometric.js";
 
 export type LoginResult =
-  | { ok: true; session: AuthSession; token: string; requiresTotp: boolean }
+  | { ok: true; session: AuthSession; token: string; requiresTotp: false }
+  | { ok: true; requiresTotp: true; nonce: string }
   | { ok: false; reason: "invalid-credentials" | "account-locked" | "unknown" };
 
 export type TotpVerifyResult =
@@ -79,6 +80,9 @@ export class AuthEngine {
   /** Pending TOTP setups: userId → { secret, expiresAt } — never trust renderer copy */
   private pendingTotpSetups = new Map<string, PendingTotpSetup>();
 
+  /** Per-session consecutive TOTP elevation failure counts: sessionToken → attempts. */
+  private elevationAttempts = new Map<string, number>();
+
   private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor(
@@ -111,6 +115,12 @@ export class AuthEngine {
     for (const [userId, setup] of this.pendingTotpSetups) {
       if (now > setup.expiresAt) {
         this.pendingTotpSetups.delete(userId);
+      }
+    }
+    // Remove stale elevation counters for sessions that have expired or been invalidated
+    for (const token of this.elevationAttempts.keys()) {
+      if (!this.sessions.isValid(token)) {
+        this.elevationAttempts.delete(token);
       }
     }
   }
@@ -151,7 +161,7 @@ export class AuthEngine {
    * If TOTP is enabled, returns `requiresTotp: true` with a nonce.
    * The caller must then call `verifyTotp()` to complete login.
    */
-  async login(username: string, password: string): Promise<LoginResult & { nonce?: string }> {
+  async login(username: string, password: string): Promise<LoginResult> {
     const user = this.store.getUserByUsername(username);
     if (!user) {
       // Constant-time delay to prevent user enumeration
@@ -181,7 +191,7 @@ export class AuthEngine {
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 min to enter TOTP
         failedAttempts: 0,
       });
-      return { ok: true, session: {} as AuthSession, token: "", requiresTotp: true, nonce };
+      return { ok: true, requiresTotp: true, nonce };
     }
 
     // No TOTP — create session directly
@@ -218,7 +228,7 @@ export class AuthEngine {
         }
         return { ok: false, reason: "invalid-code" };
       }
-      this.store.auditLog({ event: "recovery_code_used", userId: pending.userId, method: "recovery", success: true });
+      // recovery_code_used is already logged by store.useRecoveryCode(); no duplicate needed here
     }
 
     this.pendingLogins.delete(nonce);
@@ -234,9 +244,11 @@ export class AuthEngine {
    * Authenticate via biometric (Touch ID / Windows Hello).
    * Only available if the current user has biometric enrolled.
    */
-  async biometricLogin(username: string): Promise<LoginResult & { nonce?: string }> {
+  async biometricLogin(username: string): Promise<LoginResult> {
     const user = this.store.getUserByUsername(username);
     if (!user || !user.biometric_enrolled) {
+      // Constant-time delay to prevent user/biometric-enrollment enumeration via timing
+      await sleep(200);
       return { ok: false, reason: "invalid-credentials" };
     }
 
@@ -263,7 +275,7 @@ export class AuthEngine {
         expiresAt: Date.now() + 5 * 60 * 1000,
         failedAttempts: 0,
       });
-      return { ok: true, session: {} as AuthSession, token: "", requiresTotp: true, nonce };
+      return { ok: true, requiresTotp: true, nonce };
     }
 
     const { session, token } = this.sessions.createSession(user.id, user.role);
@@ -301,15 +313,24 @@ export class AuthEngine {
       this.store.auditLog({ event: "elevation_failed", userId: user.id, method: "biometric", success: false });
     }
 
-    // TOTP elevation
+    // TOTP elevation (brute-force protected — invalidates session after MAX_TOTP_ATTEMPTS failures)
     if (user.totp_enabled && totpCode) {
       const secret = this.store.getTotpSecret(user.id);
       if (secret && authenticator.verify({ token: totpCode, secret })) {
+        this.elevationAttempts.delete(sessionToken);
         this.sessions.elevateSession(sessionToken);
         this.store.auditLog({ event: "elevation_success", userId: user.id, method: "totp", success: true });
         return { ok: true };
       }
+      // Increment failure counter; invalidate the session after MAX_TOTP_ATTEMPTS to block brute-force
+      const attempts = (this.elevationAttempts.get(sessionToken) ?? 0) + 1;
+      this.elevationAttempts.set(sessionToken, attempts);
       this.store.auditLog({ event: "elevation_failed", userId: user.id, method: "totp", success: false });
+      if (attempts >= MAX_TOTP_ATTEMPTS) {
+        this.elevationAttempts.delete(sessionToken);
+        this.sessions.invalidate(sessionToken);
+        this.store.auditLog({ event: "elevation_locked", userId: user.id, method: "totp", success: false });
+      }
       return { ok: false, reason: "invalid-code" };
     }
 
@@ -450,6 +471,7 @@ export class AuthEngine {
       this.store.auditLog({ event: "logout", userId: session.userId, success: true });
     }
     this.sessions.invalidate(token);
+    this.elevationAttempts.delete(token);
   }
 
   async biometricAvailable(): Promise<boolean> {

@@ -26,7 +26,7 @@ export function registerAuthIpcHandlers(
     if (!result.ok) {return null;}
     // Don't return the session object until TOTP is verified (if required)
     if (result.requiresTotp) {
-      return { requiresTotp: true, nonce: (result as Record<string, unknown>).nonce };
+      return { requiresTotp: true, nonce: result.nonce };
     }
     return { session: result.session, token: result.token };
   });
@@ -42,7 +42,7 @@ export function registerAuthIpcHandlers(
     if (!result.ok) {return null;}
     // TOTP is still required even after a successful biometric prompt
     if (result.requiresTotp) {
-      return { requiresTotp: true, nonce: (result as Record<string, unknown>).nonce };
+      return { requiresTotp: true, nonce: result.nonce };
     }
     return { session: result.session, token: result.token };
   });

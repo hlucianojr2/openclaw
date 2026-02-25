@@ -197,7 +197,7 @@ describe("login()", () => {
     });
     const result = await engine.login("noTotp", "correct");
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && !result.requiresTotp) {
       expect(result.requiresTotp).toBe(false);
       expect(result.token).toBeTruthy();
     }
@@ -272,7 +272,8 @@ describe("verifyTotp()", () => {
     const loginResult = await engine.login("admin", "correct");
     expect(loginResult.ok).toBe(true);
 
-    const nonce = (loginResult as Record<string, unknown>).nonce as string;
+    if (!loginResult.ok || !loginResult.requiresTotp) { throw new Error("Expected pending TOTP login"); }
+    const nonce = loginResult.nonce;
     expect(nonce).toBeTruthy();
 
     // TOTP verify fails, but recovery code succeeds

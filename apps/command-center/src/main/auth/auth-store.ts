@@ -27,7 +27,7 @@ interface UserRow {
   totp_secret_enc: string; // AES-256-GCM encrypted TOTP secret (base64)
   totp_enabled: number;    // 0 | 1 (SQLite boolean)
   biometric_enrolled: number;
-  recovery_codes_enc: string; // AES-256-GCM encrypted JSON array of SHA-256 hashes
+  recovery_codes_enc: string; // AES-256-GCM encrypted JSON array of HMAC-SHA256 hashes (keyed with encKey)
   created_at: string;      // ISO timestamp
   last_login_at: string | null;
 }
