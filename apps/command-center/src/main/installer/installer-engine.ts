@@ -128,6 +128,8 @@ export class InstallerEngine {
         gatewayToken,
         gatewayPort: config.gatewayPort ?? DEFAULT_GATEWAY_PORT,
         bridgePort: config.bridgePort ?? DEFAULT_BRIDGE_PORT,
+        // Pass the channel key so the container can decrypt openclaw-channels.enc on first boot.
+        channelKeyHex: channelKey.toString("hex"),
       });
 
       // Stage 6: Install skills (write skill list to config volume before start)

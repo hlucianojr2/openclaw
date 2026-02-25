@@ -45,7 +45,12 @@ interface PendingTotpLogin {
   userId: string;
   role: UserRole;
   expiresAt: number;
+  /** Running count of failed TOTP attempts for this nonce. */
+  failedAttempts: number;
 }
+
+/** Max TOTP/recovery attempts per nonce before it is invalidated. */
+const MAX_TOTP_ATTEMPTS = 5;
 
 // ─── Login Rate Limiting ────────────────────────────────────────────────
 
@@ -174,6 +179,7 @@ export class AuthEngine {
         userId: user.id,
         role: user.role,
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 min to enter TOTP
+        failedAttempts: 0,
       });
       return { ok: true, session: {} as AuthSession, token: "", requiresTotp: true, nonce };
     }
@@ -201,7 +207,15 @@ export class AuthEngine {
       // Try recovery code as fallback
       const recoveryUsed = await this.store.useRecoveryCode(pending.userId, code);
       if (!recoveryUsed) {
+        // Increment failure counter and invalidate nonce after MAX_TOTP_ATTEMPTS.
+        // This prevents brute-force of the 6-digit TOTP space within the 5-min window.
+        pending.failedAttempts++;
         this.store.auditLog({ event: "totp_failed", userId: pending.userId, method: "totp", success: false });
+        if (pending.failedAttempts >= MAX_TOTP_ATTEMPTS) {
+          this.pendingLogins.delete(nonce);
+          this.store.auditLog({ event: "totp_nonce_invalidated", userId: pending.userId, method: "totp", success: false });
+          return { ok: false, reason: "expired" };
+        }
         return { ok: false, reason: "invalid-code" };
       }
       this.store.auditLog({ event: "recovery_code_used", userId: pending.userId, method: "recovery", success: true });
@@ -247,6 +261,7 @@ export class AuthEngine {
         userId: user.id,
         role: user.role,
         expiresAt: Date.now() + 5 * 60 * 1000,
+        failedAttempts: 0,
       });
       return { ok: true, session: {} as AuthSession, token: "", requiresTotp: true, nonce };
     }
@@ -282,7 +297,8 @@ export class AuthEngine {
       if (result.reason === "cancelled") {
         return { ok: false, reason: "biometric-cancelled" };
       }
-      // Biometric failed — fall through to TOTP
+      // Biometric failed — audit and fall through to TOTP
+      this.store.auditLog({ event: "elevation_failed", userId: user.id, method: "biometric", success: false });
     }
 
     // TOTP elevation
@@ -442,12 +458,15 @@ export class AuthEngine {
 
   // ─── Recovery Code Helpers ────────────────────────────────────────────
 
-  /** Generate a list of human-readable recovery codes (XXXX-XXXX format). */
+  /**
+   * Generate a list of human-readable recovery codes.
+   * Format: XXXXXXXXXX-XXXXXXXXXX (80-bit / 10-byte random, uppercase hex, split in two)
+   */
   private generateRecoveryCodesList(): string[] {
     const codes: string[] = [];
     for (let i = 0; i < RECOVERY_CODE_COUNT; i++) {
-      const raw = randomBytes(4).toString("hex").toUpperCase();
-      codes.push(`${raw.slice(0, 4)}-${raw.slice(4, 8)}`);
+      const raw = randomBytes(10).toString("hex").toUpperCase();
+      codes.push(`${raw.slice(0, 10)}-${raw.slice(10, 20)}`);
     }
     return codes;
   }

@@ -47,6 +47,12 @@ export class ContainerManager {
     image?: string;
     /** Name of the pre-existing network to attach to. Defaults to "openclaw-net". */
     network?: string;
+    /**
+     * AES-256 key (hex) used to encrypt openclaw-channels.enc.
+     * Injected as OPENCLAW_CHANNEL_KEY env var so the container can decrypt
+     * channel credentials on first boot.
+     */
+    channelKeyHex?: string;
   }): Promise<void> {
     const image = config.image ?? OPENCLAW_IMAGE;
     const gatewayPort = config.gatewayPort ?? DEFAULT_GATEWAY_PORT;
@@ -67,6 +73,7 @@ export class ContainerManager {
         "TERM=xterm-256color",
         `OPENCLAW_GATEWAY_TOKEN=${config.gatewayToken}`,
         "NODE_ENV=production",
+        ...(config.channelKeyHex ? [`OPENCLAW_CHANNEL_KEY=${config.channelKeyHex}`] : []),
       ],
       ports: {
         [String(gatewayPort)]: gatewayPort,

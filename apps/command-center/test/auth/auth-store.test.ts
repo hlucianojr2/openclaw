@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Mock electron.app + safeStorage
 vi.mock("electron", () => ({
   app: { getPath: vi.fn(() => "/tmp/occc-test") },
-  // isEncryptionAvailable returns false — uses the scrypt fallback path in tests
+  // isEncryptionAvailable returns false — exercises the random key-file fallback path in tests
   safeStorage: { isEncryptionAvailable: vi.fn(() => false) },
 }));
 

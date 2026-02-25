@@ -150,7 +150,7 @@ describe("createInitialUser()", () => {
     expect(result.totpSetup.secret).toBeTruthy();
     expect(result.totpSetup.qrDataUrl).toContain("data:image/png");
     expect(result.recoveryCodes).toHaveLength(8);
-    expect(result.recoveryCodes[0]).toMatch(/^[A-F0-9]{4}-[A-F0-9]{4}$/);
+    expect(result.recoveryCodes[0]).toMatch(/^[A-F0-9]{10}-[A-F0-9]{10}$/);
     expect(vi.mocked(store.setRecoveryCodes)).toHaveBeenCalledWith("new-user-id", result.recoveryCodes);
   });
 });

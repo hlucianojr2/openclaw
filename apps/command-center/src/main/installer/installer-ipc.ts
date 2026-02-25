@@ -13,10 +13,12 @@ import { SKILL_CATALOG, findSkillById } from "./skill-catalog.js";
 import { CHANNEL_CATALOG, validateChannelConfig } from "./channel-catalog.js";
 import type { DockerEngineClient } from "../docker/engine-client.js";
 import type { ContainerManager } from "../docker/container-manager.js";
+import type { AuthEngine } from "../auth/auth-engine.js";
 
 export function registerInstallerIpcHandlers(
   docker: DockerEngineClient,
   containers: ContainerManager,
+  auth: AuthEngine,
 ): void {
   const validator = new SystemValidator();
   const dockerInstaller = new DockerInstaller();
@@ -57,9 +59,11 @@ export function registerInstallerIpcHandlers(
   ipcMain.handle(IPC_CHANNELS.INSTALL_VOICE_SPEAK, async (_event, text: unknown) => {
     // Validate: must be a string, max 512 chars, no ASCII control characters
     if (typeof text !== "string") { return; }
-    // Strip ASCII control characters (0x00–0x1F, DEL) and clamp length
+    // Clamp the raw input first (before stripping) so an adversarial renderer
+    // cannot force unbounded work via control-char-heavy payloads, then
+    // strip ASCII control characters (0x00–0x1F, DEL) and bound the clean result.
     // eslint-disable-next-line no-control-regex
-    const safe = text.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 512);
+    const safe = text.slice(0, 1024).replace(/[\x00-\x1f\x7f]/g, "").slice(0, 512);
     if (!safe) { return; }
     await voice.speak(safe);
   });
@@ -93,6 +97,12 @@ export function registerInstallerIpcHandlers(
   // ─── Install ────────────────────────────────────────────────────────
 
   ipcMain.handle(IPC_CHANNELS.INSTALL_RUN, async (event, config: InstallerConfig) => {
+    // Guard: installer can only run during first-run setup.
+    // After the initial user is created this channel must never execute again.
+    if (!auth.isFirstRun()) {
+      throw new Error("Installation already completed — INSTALL_RUN is disabled");
+    }
+
     // Guard: reject any skill not in the catalog or requiring elevated auth.
     // Admin-review skills cannot be installed during the pre-auth wizard.
     const selectedSkills: string[] = Array.isArray(config.selectedSkills) ? config.selectedSkills : [];
