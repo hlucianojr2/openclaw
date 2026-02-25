@@ -6,6 +6,7 @@
  */
 
 import React from "react";
+import { btnPrimary, labelStyle, inputStyle } from "./installer-styles.js";
 
 export interface AdvancedConfig {
   gatewayPort: number;
@@ -37,9 +38,10 @@ export function StepAdvanced({ config, onChange, onNext }: StepAdvancedProps) {
       <div style={card}>
         {/* Gateway Port */}
         <div>
-          <label style={labelStyle}>Gateway Port</label>
+          <label style={labelStyle} htmlFor="gateway-port">Gateway Port</label>
           <p style={fieldDesc}>The port the OpenClaw Gateway listens on for API requests.</p>
           <input
+            id="gateway-port"
             style={inputStyle}
             type="number"
             min={1024}
@@ -56,9 +58,10 @@ export function StepAdvanced({ config, onChange, onNext }: StepAdvancedProps) {
 
         {/* Bridge Port */}
         <div>
-          <label style={labelStyle}>Bridge Port</label>
+          <label style={labelStyle} htmlFor="bridge-port">Bridge Port</label>
           <p style={fieldDesc}>The port the OCCC&rarr;Gateway WebSocket bridge uses.</p>
           <input
+            id="bridge-port"
             style={inputStyle}
             type="number"
             min={1024}
@@ -85,6 +88,8 @@ export function StepAdvanced({ config, onChange, onNext }: StepAdvancedProps) {
           {/* Toggle switch */}
           <button
             onClick={() => onChange({ voiceEnabled: !config.voiceEnabled })}
+            aria-label={config.voiceEnabled ? "Disable voice guide" : "Enable voice guide"}
+            aria-pressed={config.voiceEnabled}
             style={{
               background: config.voiceEnabled ? "var(--accent-primary)" : "var(--surface-2)",
               border: "none",
@@ -189,37 +194,4 @@ const actions: React.CSSProperties = {
   justifyContent: "flex-end",
   marginTop: "24px",
 };
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: "12px",
-  fontWeight: 600,
-  color: "var(--text-tertiary)",
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  marginBottom: "4px",
-};
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  background: "rgba(30,30,42,0.8)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: "10px",
-  padding: "10px 14px",
-  fontSize: "14px",
-  color: "var(--text-primary)",
-  outline: "none",
-  fontFamily: "inherit",
-  boxSizing: "border-box",
-};
-const btnPrimary: React.CSSProperties = {
-  background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-  border: "none",
-  borderRadius: "10px",
-  padding: "10px 20px",
-  fontSize: "13px",
-  fontWeight: 600,
-  color: "white",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-};
+// labelStyle, inputStyle, and btnPrimary are imported from installer-styles.ts

@@ -7,6 +7,7 @@
  */
 
 import React from "react";
+import { btnPrimary, btnSecondary } from "./installer-styles.js";
 
 interface StepChannelsProps {
   enabledChannels: string[];
@@ -95,10 +96,20 @@ export function StepChannels({ enabledChannels, onToggle, onNext }: StepChannels
       >
         {CHANNEL_OPTIONS.map((ch) => {
           const enabled = enabledChannels.includes(ch.id);
+          const toggle = () => onToggle(ch.id);
           return (
             <div
               key={ch.id}
-              onClick={() => onToggle(ch.id)}
+              role="button"
+              tabIndex={0}
+              aria-pressed={enabled}
+              onClick={toggle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggle();
+                }
+              }}
               style={{
                 padding: "14px 16px",
                 background: enabled ? "var(--accent-primary-glow)" : "var(--surface-1)",
@@ -230,25 +241,4 @@ const actions: React.CSSProperties = {
   justifyContent: "flex-end",
   marginTop: "24px",
 };
-const btnPrimary: React.CSSProperties = {
-  background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-  border: "none",
-  borderRadius: "10px",
-  padding: "10px 20px",
-  fontSize: "13px",
-  fontWeight: 600,
-  color: "white",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-};
-const btnSecondary: React.CSSProperties = {
-  background: "var(--surface-1)",
-  border: "1px solid var(--border-default)",
-  borderRadius: "10px",
-  padding: "10px 20px",
-  fontSize: "13px",
-  color: "var(--text-secondary)",
-  cursor: "pointer",
-};
+// btnPrimary and btnSecondary are imported from installer-styles.ts

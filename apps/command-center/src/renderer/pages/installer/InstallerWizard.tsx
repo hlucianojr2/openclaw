@@ -16,14 +16,17 @@
  * All IPC calls use typed OcccBridge methods — occc.invoke() is not used here.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { SystemCheck, SystemValidation, OcccBridge } from "../../../shared/ipc-types.js";
+import type { WizardConfig } from "./installer-types.js";
+import { StepDocker } from "./StepDocker.js";
+import { StepLLM, LLM_OPTIONS } from "./StepLLM.js";
 import { StepSkills } from "./StepSkills.js";
 import { StepChannels } from "./StepChannels.js";
 import { StepAdvanced } from "./StepAdvanced.js";
-
-// Defined in renderer to avoid importing from main-process (renderer boundary)
-type LLMProvider = "anthropic" | "google-gemini" | "openai" | "ollama";
+import { StepGitHub } from "./StepGitHub.js";
+import { StepInstalling } from "./StepInstalling.js";
+import { step, btnPrimary, btnSecondary, btnDisabled } from "./installer-styles.js";
 
 const occc = (window as unknown as { occc: OcccBridge }).occc;
 
@@ -52,18 +55,6 @@ const STEPS: { id: WizardStep; label: string }[] = [
   { id: "review", label: "Review" },
   { id: "installing", label: "Install" },
 ];
-
-interface WizardConfig {
-  llmProvider: LLMProvider;
-  llmApiKey: string;
-  selectedSkills: string[];
-  enabledChannels: string[];
-  githubPat: string;
-  githubRepo: string;
-  voiceEnabled: boolean;
-  gatewayPort: number;
-  bridgePort: number;
-}
 
 const defaultConfig: WizardConfig = {
   llmProvider: "anthropic",
@@ -337,277 +328,11 @@ function CheckRow({ check }: { check: SystemCheck }) {
   );
 }
 
-// ─── Step 2: Docker ───────────────────────────────────────────────────────
-
-function StepDocker({ onNext }: { onNext: () => void }) {
-  const [verify, setVerify] = useState<{ ok: boolean; version?: string; error?: string } | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [waitMsg, setWaitMsg] = useState<string | null>(null);
-  const [options, setOptions] = useState<{ dockerDesktop: boolean; dockerCE: boolean }>({
-    dockerDesktop: true,
-    dockerCE: false,
-  });
-  const [ceCmd, setCeCmd] = useState<string | null>(null);
-
-  useEffect(() => {
-    occc.installGetDockerOptions().then((v) => setOptions(v)).catch(() => {});
-    void checkDocker();
-  }, []);
-
-  const checkDocker = async () => {
-    setChecking(true);
-    try {
-      const result = await occc.installVerifyDocker();
-      setVerify(result);
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const handleOpenDesktop = async () => {
-    await occc.installOpenDockerDownload();
-    setWaitMsg("Download Docker Desktop, install it, then click the button below.");
-  };
-
-  const handleShowCE = async () => {
-    const cmd = await occc.installGetDockerCECommand();
-    setCeCmd(cmd);
-  };
-
-  return (
-    <div style={step.container}>
-      <h2 style={step.heading}>Container Engine</h2>
-      <p style={step.desc}>
-        OpenClaw runs in isolated containers. Install Docker Desktop (recommended) or Docker CE (headless).
-      </p>
-
-      {checking ? (
-        <div style={step.center}><div className="spinner" /><p style={{ color: "var(--text-tertiary)", marginTop: 12 }}>Checking…</p></div>
-      ) : verify?.ok ? (
-        <div style={{ margin: "24px 0" }}>
-          <div style={{ ...step.alertBox, borderColor: "var(--accent-success)", color: "var(--accent-success)", background: "var(--accent-success-glow)" }}>
-            ✓ Docker {verify.version} is installed and running
-          </div>
-          <div style={step.actions}>
-            <button style={btnPrimary} onClick={onNext}>Continue →</button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ margin: "24px 0", display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={step.alertBox}>
-            {verify?.error ?? "No container engine detected."}
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            {options.dockerDesktop && (
-              <OptionCard
-                icon="🖥"
-                title="Docker Desktop"
-                desc="Full GUI experience. Recommended for macOS and Windows."
-                onClick={handleOpenDesktop}
-                cta="Download Docker Desktop"
-              />
-            )}
-            {options.dockerCE && (
-              <OptionCard
-                icon="⚡"
-                title="Docker CE"
-                desc="Lightweight, command-line only. Best for Linux servers."
-                onClick={handleShowCE}
-                cta="Show Install Command"
-              />
-            )}
-          </div>
-
-          {ceCmd && (
-            <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-default)", borderRadius: "10px", padding: "14px 16px" }}>
-              <p style={{ fontSize: "12px", color: "var(--text-tertiary)", marginBottom: "8px" }}>Run this command in a terminal, then click Re-check:</p>
-              <code style={{ fontSize: "12px", color: "var(--accent-primary-hover)", wordBreak: "break-all", fontFamily: "var(--font-mono)" }}>
-                {ceCmd}
-              </code>
-            </div>
-          )}
-
-          {waitMsg && (
-            <p style={{ fontSize: "13px", color: "var(--text-secondary)", textAlign: "center" }}>{waitMsg}</p>
-          )}
-
-          <div style={step.actions}>
-            <button style={btnSecondary} onClick={checkDocker}>↺ Re-check</button>
-            <button style={btnSecondary} onClick={onNext}>Skip (already installed)</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OptionCard({ icon, title, desc, onClick, cta }: { icon: string; title: string; desc: string; onClick: () => void; cta: string; }) {
-  return (
-    <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-default)", borderRadius: "12px", padding: "20px 16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-      <div style={{ fontSize: "28px" }}>{icon}</div>
-      <div>
-        <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "4px" }}>{title}</div>
-        <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 }}>{desc}</div>
-      </div>
-      <button style={btnPrimary} onClick={onClick}>{cta}</button>
-    </div>
-  );
-}
-
-// ─── Step 3: LLM Provider ─────────────────────────────────────────────────
-
-const LLM_OPTIONS: { id: LLMProvider; label: string; desc: string; icon: string; keyLabel: string; keyPlaceholder: string; keyUrl: string }[] = [
-  { id: "anthropic", label: "Anthropic Claude", desc: "Best reasoning & safety. Recommended.", icon: "🤖", keyLabel: "Anthropic API Key", keyPlaceholder: "sk-ant-…", keyUrl: "https://console.anthropic.com/settings/keys" },
-  { id: "google-gemini", label: "Google Gemini", desc: "Powerful multimodal model from Google.", icon: "✦", keyLabel: "Gemini API Key", keyPlaceholder: "AIza…", keyUrl: "https://aistudio.google.com/app/apikey" },
-  { id: "openai", label: "OpenAI", desc: "GPT-4o and family of models.", icon: "◎", keyLabel: "OpenAI API Key", keyPlaceholder: "sk-…", keyUrl: "https://platform.openai.com/api-keys" },
-  { id: "ollama", label: "Ollama (Local)", desc: "Fully local, no API key required.", icon: "🦙", keyLabel: "", keyPlaceholder: "", keyUrl: "" },
-];
-
-function StepLLM({ config, setConfig, onNext }: { config: WizardConfig; setConfig: React.Dispatch<React.SetStateAction<WizardConfig>>; onNext: () => void }) {
-  const selected = LLM_OPTIONS.find((o) => o.id === config.llmProvider)!;
-
-  return (
-    <div style={step.container}>
-      <h2 style={step.heading}>AI Provider</h2>
-      <p style={step.desc}>Choose your preferred language model. You can change this later in Configuration.</p>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", margin: "20px 0 16px" }}>
-        {LLM_OPTIONS.map((opt) => (
-          <div
-            key={opt.id}
-            onClick={() => setConfig((c) => ({ ...c, llmProvider: opt.id, llmApiKey: "" }))}
-            style={{
-              padding: "14px 16px",
-              background: config.llmProvider === opt.id ? "var(--accent-primary-glow)" : "var(--surface-1)",
-              border: `1px solid ${config.llmProvider === opt.id ? "var(--accent-primary)" : "var(--border-subtle)"}`,
-              borderRadius: "12px",
-              cursor: "pointer",
-              transition: "all 200ms",
-            }}
-          >
-            <span style={{ fontSize: "20px" }}>{opt.icon}</span>
-            <div style={{ fontWeight: 600, fontSize: "13px", marginTop: "6px" }}>{opt.label}</div>
-            <div style={{ fontSize: "11px", color: "var(--text-secondary)", marginTop: "3px" }}>{opt.desc}</div>
-          </div>
-        ))}
-      </div>
-
-      {selected.keyLabel && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label style={labelStyle}>{selected.keyLabel}</label>
-          <input
-            style={inputStyle}
-            type="password"
-            value={config.llmApiKey}
-            onChange={(e) => setConfig((c) => ({ ...c, llmApiKey: e.target.value }))}
-            placeholder={selected.keyPlaceholder}
-          />
-          {selected.keyUrl && (
-            <a
-              href={selected.keyUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              style={{ fontSize: "12px", color: "var(--accent-primary-hover)", textDecoration: "none" }}
-            >
-              Get API key →
-            </a>
-          )}
-        </div>
-      )}
-
-      <div style={step.actions}>
-        <button
-          style={config.llmProvider === "ollama" || config.llmApiKey ? btnPrimary : btnSecondary}
-          onClick={onNext}
-        >
-          Continue →
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 4: GitHub Backup ────────────────────────────────────────────────
-
-function StepGitHub({ config, setConfig, onNext }: { config: WizardConfig; setConfig: React.Dispatch<React.SetStateAction<WizardConfig>>; onNext: () => void }) {
-  const [validating, setValidating] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; login?: string; repoUrl?: string; error?: string } | null>(null);
-
-  const handleValidate = async () => {
-    if (!config.githubPat) {return;}
-    setValidating(true);
-    setResult(null);
-    try {
-      // Validate the PAT via typed bridge method
-      const patResult = await occc.installGitHubValidatePAT(config.githubPat);
-      if (!patResult.valid) {
-        setResult({ ok: false, error: "Invalid Personal Access Token." });
-        return;
-      }
-
-      // Auto-create backup repository
-      const repoResult = await occc.installGitHubCreateRepo(config.githubPat);
-      setConfig((c) => ({ ...c, githubRepo: repoResult.url }));
-      setResult({ ok: true, login: patResult.login, repoUrl: repoResult.url });
-    } catch {
-      setResult({ ok: false, error: "Failed to connect to GitHub." });
-    } finally {
-      setValidating(false);
-    }
-  };
-
-  return (
-    <div style={step.container}>
-      <h2 style={step.heading}>Automated Backups</h2>
-      <p style={step.desc}>
-        OpenClaw will automatically back up your configuration to a private GitHub repository. Provide a Personal Access Token with <strong>repo</strong> scope.
-      </p>
-
-      <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-subtle)", borderRadius: "12px", padding: "20px", margin: "16px 0" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div>
-            <label style={labelStyle}>GitHub Personal Access Token</label>
-            <input
-              style={inputStyle}
-              type="password"
-              value={config.githubPat}
-              onChange={(e) => { setConfig((c) => ({ ...c, githubPat: e.target.value })); setResult(null); }}
-              placeholder="ghp_…"
-            />
-            <a
-              href="https://github.com/settings/tokens/new?scopes=repo&description=OpenClaw+Backup"
-              target="_blank"
-              rel="noreferrer noopener"
-              style={{ fontSize: "11px", color: "var(--accent-primary-hover)", marginTop: "6px", display: "block", textDecoration: "none" }}
-            >
-              How to create a PAT (repo scope) →
-            </a>
-          </div>
-
-          <button style={validating ? btnDisabled : btnSecondary} onClick={handleValidate} disabled={validating || !config.githubPat}>
-            {validating ? "Validating…" : "Validate & Create Repo"}
-          </button>
-
-          {result && (
-            <div style={{ fontSize: "13px", color: result.ok ? "var(--accent-success)" : "var(--accent-danger)" }}>
-              {result.ok
-                ? `✓ Connected as @${result.login ?? "unknown"}. Repository: ${result.repoUrl}`
-                : `✗ ${result.error}`}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={step.actions}>
-        <button style={btnSecondary} onClick={onNext}>Skip (configure later)</button>
-        <button style={result?.ok ? btnPrimary : btnSecondary} onClick={onNext}>
-          {result?.ok ? "Continue →" : "Continue without Backup →"}
-        </button>
-      </div>
-    </div>
-  );
-}
+// ─── Steps 2–3, 4, 6 (extracted) ─────────────────────────────────────────
+// StepDocker → StepDocker.tsx
+// StepLLM    → StepLLM.tsx
+// StepGitHub → StepGitHub.tsx
+// StepInstalling → StepInstalling.tsx
 
 // ─── Step 5: Review ───────────────────────────────────────────────────────
 
@@ -648,75 +373,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ─── Step 6: Installing ───────────────────────────────────────────────────
-
-interface InstallProgress { stage: string; percent: number; message: string; error?: string }
-
-function StepInstalling({ config, onComplete }: { config: WizardConfig; onComplete: () => void }) {
-  const [progress, setProgress] = useState<InstallProgress>({ stage: "preparing", percent: 0, message: "Preparing…" });
-  const [error, setError] = useState<string | null>(null);
-  const started = useRef(false);
-
-  useEffect(() => {
-    if (started.current) {return;}
-    started.current = true;
-
-    // Listen for progress events from main process
-    occc.on("occc:install:progress", (...args: unknown[]) => {
-      const p = args[0] as InstallProgress;
-      setProgress(p);
-      if (p.stage === "done") {onComplete();}
-      if (p.stage === "error") {setError(p.error ?? "Installation failed.");}
-    });
-
-    // Start the installation via typed bridge method
-    occc.installRun({
-      llmProvider: config.llmProvider,
-      llmApiKey: config.llmApiKey,
-      selectedSkills: config.selectedSkills,
-      enabledChannels: config.enabledChannels,
-      githubPat: config.githubPat,
-      githubRepo: config.githubRepo,
-      voiceEnabled: config.voiceEnabled,
-      gatewayPort: config.gatewayPort,
-      bridgePort: config.bridgePort,
-    }).catch((err: Error) => {
-      setError(err.message);
-    });
-  }, []);
-
-  return (
-    <div style={step.container}>
-      <h2 style={step.heading}>Installing…</h2>
-      {!error ? (
-        <>
-          <div style={{ margin: "32px 0 16px" }}>
-            <div style={progressTrack}>
-              <div style={{ ...progressFill, width: `${progress.percent}%`, transition: "width 500ms var(--ease-out)" }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px" }}>
-              <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{progress.message}</p>
-              <span style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>{progress.percent}%</span>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
-            <div className="spinner" />
-          </div>
-        </>
-      ) : (
-        <div style={{ margin: "24px 0" }}>
-          <div style={{ ...step.alertBox, borderColor: "var(--accent-danger)", color: "var(--accent-danger)" }}>
-            ✗ {error}
-          </div>
-          <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "12px" }}>
-            Check that Docker is running and try again. If the problem persists, check the logs.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
+// ─── Step 6: Installing (see StepInstalling.tsx) ────────────────────────────
 
 // ─── Step 7: Complete ─────────────────────────────────────────────────────
 
@@ -750,18 +407,5 @@ const shell: Record<string, React.CSSProperties> = {
   progressFill: { height: "100%", background: "var(--accent-primary)", transition: "width 400ms" },
   content: { flex: 1, overflowY: "auto", padding: "0 32px 32px" },
 };
-const step: Record<string, React.CSSProperties> = {
-  container: { maxWidth: "560px", margin: "0 auto", paddingTop: "8px" },
-  heading: { fontSize: "20px", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 8px" },
-  desc: { fontSize: "13px", color: "var(--text-secondary)", margin: "0", lineHeight: 1.6 },
-  center: { display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 0" },
-  actions: { display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "24px" },
-  alertBox: { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "10px", padding: "14px 16px", fontSize: "13px", color: "var(--text-secondary)" },
-};
-const progressTrack: React.CSSProperties = { height: "8px", background: "var(--surface-2)", borderRadius: "4px", overflow: "hidden" };
-const progressFill: React.CSSProperties = { height: "100%", background: "linear-gradient(90deg, var(--accent-primary), var(--accent-success))", borderRadius: "4px" };
-const labelStyle: React.CSSProperties = { display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "6px" };
-const inputStyle: React.CSSProperties = { width: "100%", background: "rgba(30,30,42,0.8)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "var(--text-primary)", outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
-const btnPrimary: React.CSSProperties = { background: "linear-gradient(135deg, #6366f1, #4f46e5)", border: "none", borderRadius: "10px", padding: "10px 20px", fontSize: "13px", fontWeight: 600, color: "white", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" };
-const btnSecondary: React.CSSProperties = { background: "var(--surface-1)", border: "1px solid var(--border-default)", borderRadius: "10px", padding: "10px 20px", fontSize: "13px", color: "var(--text-secondary)", cursor: "pointer" };
-const btnDisabled: React.CSSProperties = { ...btnPrimary, opacity: 0.5, cursor: "not-allowed" };
+// Style constants (step, labelStyle, inputStyle, btnPrimary, btnSecondary, btnDisabled)
+// are imported from ./installer-styles.ts — see import block at top of file.

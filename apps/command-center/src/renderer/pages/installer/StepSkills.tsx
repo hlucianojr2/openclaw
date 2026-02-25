@@ -7,6 +7,7 @@
  */
 
 import React from "react";
+import { btnPrimary, btnSecondary } from "./installer-styles.js";
 
 interface StepSkillsProps {
   selectedSkills: string[];
@@ -79,10 +80,20 @@ export function StepSkills({ selectedSkills, onToggle, onNext }: StepSkillsProps
       <div style={{ display: "flex", flexDirection: "column", gap: "10px", margin: "20px 0" }}>
         {STARTER_SKILLS.map((skill) => {
           const selected = selectedSkills.includes(skill.id);
+          const toggle = () => onToggle(skill.id);
           return (
             <div
               key={skill.id}
-              onClick={() => onToggle(skill.id)}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selected}
+              onClick={toggle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggle();
+                }
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -194,25 +205,4 @@ const actions: React.CSSProperties = {
   justifyContent: "flex-end",
   marginTop: "24px",
 };
-const btnPrimary: React.CSSProperties = {
-  background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-  border: "none",
-  borderRadius: "10px",
-  padding: "10px 20px",
-  fontSize: "13px",
-  fontWeight: 600,
-  color: "white",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-};
-const btnSecondary: React.CSSProperties = {
-  background: "var(--surface-1)",
-  border: "1px solid var(--border-default)",
-  borderRadius: "10px",
-  padding: "10px 20px",
-  fontSize: "13px",
-  color: "var(--text-secondary)",
-  cursor: "pointer",
-};
+// btnPrimary and btnSecondary are imported from installer-styles.ts
