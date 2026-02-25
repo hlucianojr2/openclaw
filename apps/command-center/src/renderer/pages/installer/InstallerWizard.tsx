@@ -5,26 +5,37 @@
  *   1. Welcome + System Check
  *   2. Container Engine (Docker Desktop or CE)
  *   3. AI Provider Selection
- *   4. GitHub Backup Setup
- *   5. Review & Install
- *   6. Install Progress
- *   7. Complete
+ *   4. Starter Skills
+ *   5. Messaging Channels
+ *   6. Advanced Settings (ports, voice)
+ *   7. GitHub Backup Setup
+ *   8. Review & Install
+ *   9. Install Progress
+ *  10. Complete
+ *
+ * All IPC calls use typed OcccBridge methods — occc.invoke() is not used here.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { SystemCheck, SystemValidation, OcccBridge } from "../../../shared/ipc-types.js";
+import { StepSkills } from "./StepSkills.js";
+import { StepChannels } from "./StepChannels.js";
+import { StepAdvanced } from "./StepAdvanced.js";
 
-// Defined here instead of importing from main-process (renderer boundary)
+// Defined in renderer to avoid importing from main-process (renderer boundary)
 type LLMProvider = "anthropic" | "google-gemini" | "openai" | "ollama";
 
 const occc = (window as unknown as { occc: OcccBridge }).occc;
 
-// ─── Wizard shell ──────────────────────────────────────────────────────────
+// ─── Wizard types ──────────────────────────────────────────────────────────
 
 type WizardStep =
   | "welcome"
   | "docker"
   | "llm"
+  | "skills"
+  | "channels"
+  | "advanced"
   | "github"
   | "review"
   | "installing"
@@ -33,7 +44,10 @@ type WizardStep =
 const STEPS: { id: WizardStep; label: string }[] = [
   { id: "welcome", label: "System" },
   { id: "docker", label: "Engine" },
-  { id: "llm", label: "AI Provider" },
+  { id: "llm", label: "AI" },
+  { id: "skills", label: "Skills" },
+  { id: "channels", label: "Channels" },
+  { id: "advanced", label: "Advanced" },
   { id: "github", label: "Backup" },
   { id: "review", label: "Review" },
   { id: "installing", label: "Install" },
@@ -42,6 +56,8 @@ const STEPS: { id: WizardStep; label: string }[] = [
 interface WizardConfig {
   llmProvider: LLMProvider;
   llmApiKey: string;
+  selectedSkills: string[];
+  enabledChannels: string[];
   githubPat: string;
   githubRepo: string;
   voiceEnabled: boolean;
@@ -52,6 +68,9 @@ interface WizardConfig {
 const defaultConfig: WizardConfig = {
   llmProvider: "anthropic",
   llmApiKey: "",
+  // Pre-select the three recommended skills
+  selectedSkills: ["memory-core", "brave-search", "llm-task"],
+  enabledChannels: [],
   githubPat: "",
   githubRepo: "",
   voiceEnabled: true,
@@ -62,6 +81,8 @@ const defaultConfig: WizardConfig = {
 interface InstallerWizardProps {
   onComplete: () => void;
 }
+
+// ─── Wizard shell ──────────────────────────────────────────────────────────
 
 export function InstallerWizard({ onComplete }: InstallerWizardProps) {
   const [step, setStep] = useState<WizardStep>("welcome");
@@ -74,12 +95,15 @@ export function InstallerWizard({ onComplete }: InstallerWizardProps) {
     if (next) {setStep(next);}
   }, [stepIndex]);
 
-  // Narrate each step
+  // Narrate each step via the typed bridge method
   useEffect(() => {
     const scripts: Partial<Record<WizardStep, string>> = {
       welcome: "Welcome to the OpenClaw setup wizard. Let's check your system requirements.",
       docker: "Now let's set up your container engine.",
       llm: "Choose your preferred AI provider.",
+      skills: "Select the skills you want enabled from the start.",
+      channels: "Pick the messaging channels you would like to activate.",
+      advanced: "Review advanced settings like port numbers.",
       github: "Set up automated backups to GitHub.",
       review: "Review your configuration before installing.",
       installing: "Installing OpenClaw. Please wait.",
@@ -87,9 +111,27 @@ export function InstallerWizard({ onComplete }: InstallerWizardProps) {
     };
     const text = scripts[step];
     if (text && config.voiceEnabled) {
-      occc.invoke?.("occc:install:voice-speak", text).catch(() => {});
+      occc.installVoiceSpeak(text).catch(() => {});
     }
   }, [step, config.voiceEnabled]);
+
+  const toggleSkill = useCallback((id: string) => {
+    setConfig((c) => ({
+      ...c,
+      selectedSkills: c.selectedSkills.includes(id)
+        ? c.selectedSkills.filter((s) => s !== id)
+        : [...c.selectedSkills, id],
+    }));
+  }, []);
+
+  const toggleChannel = useCallback((id: string) => {
+    setConfig((c) => ({
+      ...c,
+      enabledChannels: c.enabledChannels.includes(id)
+        ? c.enabledChannels.filter((ch) => ch !== id)
+        : [...c.enabledChannels, id],
+    }));
+  }, []);
 
   return (
     <div style={shell.page}>
@@ -98,13 +140,13 @@ export function InstallerWizard({ onComplete }: InstallerWizardProps) {
         <div style={shell.logo}>⬡</div>
         <h1 style={shell.title}>OpenClaw Setup</h1>
 
-        {/* Voice toggle */}
+        {/* Quick voice toggle in header */}
         <button
           style={shell.voiceBtn}
           onClick={() => {
             const next = !config.voiceEnabled;
             setConfig((c) => ({ ...c, voiceEnabled: next }));
-            occc.invoke?.("occc:install:voice-set-enabled", next).catch(() => {});
+            occc.installVoiceSetEnabled(next).catch(() => {});
           }}
           title={config.voiceEnabled ? "Disable voice guide" : "Enable voice guide"}
         >
@@ -140,19 +182,40 @@ export function InstallerWizard({ onComplete }: InstallerWizardProps) {
       {/* Step content */}
       <div style={shell.content}>
         {step === "welcome" && (
-          <StepSystemCheck
-            onNext={() => goNext("docker")}
-          />
+          <StepSystemCheck onNext={() => goNext("docker")} />
         )}
         {step === "docker" && (
-          <StepDocker
-            onNext={() => goNext("llm")}
-          />
+          <StepDocker onNext={() => goNext("llm")} />
         )}
         {step === "llm" && (
           <StepLLM
             config={config}
             setConfig={setConfig}
+            onNext={() => goNext("skills")}
+          />
+        )}
+        {step === "skills" && (
+          <StepSkills
+            selectedSkills={config.selectedSkills}
+            onToggle={toggleSkill}
+            onNext={() => goNext("channels")}
+          />
+        )}
+        {step === "channels" && (
+          <StepChannels
+            enabledChannels={config.enabledChannels}
+            onToggle={toggleChannel}
+            onNext={() => goNext("advanced")}
+          />
+        )}
+        {step === "advanced" && (
+          <StepAdvanced
+            config={{
+              gatewayPort: config.gatewayPort,
+              bridgePort: config.bridgePort,
+              voiceEnabled: config.voiceEnabled,
+            }}
+            onChange={(patch) => setConfig((c) => ({ ...c, ...patch }))}
             onNext={() => goNext("github")}
           />
         )}
@@ -193,8 +256,8 @@ function StepSystemCheck({ onNext }: { onNext: () => void }) {
   const runCheck = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await occc.invoke("occc:install:validate-system");
-      setValidation(result as SystemValidation | null);
+      const result = await occc.installValidateSystem();
+      setValidation(result);
     } catch {
       setValidation(null);
     } finally {
@@ -280,32 +343,35 @@ function StepDocker({ onNext }: { onNext: () => void }) {
   const [verify, setVerify] = useState<{ ok: boolean; version?: string; error?: string } | null>(null);
   const [checking, setChecking] = useState(false);
   const [waitMsg, setWaitMsg] = useState<string | null>(null);
-  const [options, setOptions] = useState<{ desktop: boolean; ce: boolean }>({ desktop: true, ce: false });
+  const [options, setOptions] = useState<{ dockerDesktop: boolean; dockerCE: boolean }>({
+    dockerDesktop: true,
+    dockerCE: false,
+  });
   const [ceCmd, setCeCmd] = useState<string | null>(null);
 
   useEffect(() => {
-    occc.invoke("occc:install:docker-options").then((v) => setOptions(v as { desktop: boolean; ce: boolean })).catch(() => {});
+    occc.installGetDockerOptions().then((v) => setOptions(v)).catch(() => {});
     void checkDocker();
   }, []);
 
   const checkDocker = async () => {
     setChecking(true);
     try {
-      const result = await occc.invoke("occc:install:verify-docker");
-      setVerify(result as { ok: boolean; version?: string; error?: string } | null);
+      const result = await occc.installVerifyDocker();
+      setVerify(result);
     } finally {
       setChecking(false);
     }
   };
 
   const handleOpenDesktop = async () => {
-    await occc.invoke?.("occc:install:open-docker-download");
+    await occc.installOpenDockerDownload();
     setWaitMsg("Download Docker Desktop, install it, then click the button below.");
   };
 
   const handleShowCE = async () => {
-    const cmd = await occc.invoke("occc:install:docker-ce-command");
-    setCeCmd(cmd as string | null);
+    const cmd = await occc.installGetDockerCECommand();
+    setCeCmd(cmd);
   };
 
   return (
@@ -333,7 +399,7 @@ function StepDocker({ onNext }: { onNext: () => void }) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            {options.desktop && (
+            {options.dockerDesktop && (
               <OptionCard
                 icon="🖥"
                 title="Docker Desktop"
@@ -342,7 +408,7 @@ function StepDocker({ onNext }: { onNext: () => void }) {
                 cta="Download Docker Desktop"
               />
             )}
-            {options.ce && (
+            {options.dockerCE && (
               <OptionCard
                 icon="⚡"
                 title="Docker CE"
@@ -439,9 +505,10 @@ function StepLLM({ config, setConfig, onNext }: { config: WizardConfig; setConfi
           />
           {selected.keyUrl && (
             <a
-              href="#"
+              href={selected.keyUrl}
+              target="_blank"
+              rel="noreferrer noopener"
               style={{ fontSize: "12px", color: "var(--accent-primary-hover)", textDecoration: "none" }}
-              onClick={(e) => { e.preventDefault(); void occc.invoke("occc:install:open-docker-download"); }}
             >
               Get API key →
             </a>
@@ -465,22 +532,24 @@ function StepLLM({ config, setConfig, onNext }: { config: WizardConfig; setConfi
 
 function StepGitHub({ config, setConfig, onNext }: { config: WizardConfig; setConfig: React.Dispatch<React.SetStateAction<WizardConfig>>; onNext: () => void }) {
   const [validating, setValidating] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; user?: { login: string }; error?: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; login?: string; repoUrl?: string; error?: string } | null>(null);
 
   const handleValidate = async () => {
     if (!config.githubPat) {return;}
     setValidating(true);
     setResult(null);
     try {
-      const res = await occc.invoke("occc:install:github-validate-pat", config.githubPat) as { ok: boolean; user?: { login: string }; error?: string } | null;
-      setResult(res);
-      if (res?.ok) {
-        // Auto-create repo
-        const repoResult = await occc.invoke("occc:install:github-create-repo", config.githubPat) as { ok: boolean; repo?: { fullName: string } } | null;
-        if (repoResult?.ok && repoResult.repo != null) {
-          setConfig((c) => ({ ...c, githubRepo: repoResult.repo!.fullName }));
-        }
+      // Validate the PAT via typed bridge method
+      const patResult = await occc.installGitHubValidatePAT(config.githubPat);
+      if (!patResult.valid) {
+        setResult({ ok: false, error: "Invalid Personal Access Token." });
+        return;
       }
+
+      // Auto-create backup repository
+      const repoResult = await occc.installGitHubCreateRepo(config.githubPat);
+      setConfig((c) => ({ ...c, githubRepo: repoResult.url }));
+      setResult({ ok: true, login: patResult.login, repoUrl: repoResult.url });
     } catch {
       setResult({ ok: false, error: "Failed to connect to GitHub." });
     } finally {
@@ -506,7 +575,12 @@ function StepGitHub({ config, setConfig, onNext }: { config: WizardConfig; setCo
               onChange={(e) => { setConfig((c) => ({ ...c, githubPat: e.target.value })); setResult(null); }}
               placeholder="ghp_…"
             />
-            <a href="#" style={{ fontSize: "11px", color: "var(--accent-primary-hover)", marginTop: "6px", display: "block", textDecoration: "none" }}>
+            <a
+              href="https://github.com/settings/tokens/new?scopes=repo&description=OpenClaw+Backup"
+              target="_blank"
+              rel="noreferrer noopener"
+              style={{ fontSize: "11px", color: "var(--accent-primary-hover)", marginTop: "6px", display: "block", textDecoration: "none" }}
+            >
               How to create a PAT (repo scope) →
             </a>
           </div>
@@ -518,7 +592,7 @@ function StepGitHub({ config, setConfig, onNext }: { config: WizardConfig; setCo
           {result && (
             <div style={{ fontSize: "13px", color: result.ok ? "var(--accent-success)" : "var(--accent-danger)" }}>
               {result.ok
-                ? `✓ Connected as @${result.user?.login}. Backup repository: ${config.githubRepo}`
+                ? `✓ Connected as @${result.login ?? "unknown"}. Repository: ${result.repoUrl}`
                 : `✗ ${result.error}`}
             </div>
           )}
