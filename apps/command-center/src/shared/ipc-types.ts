@@ -103,6 +103,16 @@ export interface SkillInfo {
  */
 export type SkillApprovalLevel = "auto-approved" | "user-ack" | "admin-review" | "blocked";
 
+/** Extension category tag (used in skill-catalog). */
+export type SkillCategory =
+  | "monitoring"
+  | "analytics"
+  | "productivity"
+  | "utilities"
+  | "development"
+  | "communication"
+  | "system";
+
 export interface SkillCatalogEntry {
   /** Unique skill identifier (matches extension dir name). */
   id: string;
@@ -116,8 +126,7 @@ export interface SkillCatalogEntry {
   requiresApiKey: boolean;
   apiKeyLabel?: string;
   officialLink?: string;
-  /** Extension category tag. */
-  category: string;
+  category: SkillCategory;
 }
 
 // ─── Channel Catalog (Wizard Step 7) ─────────────────────────────────────────

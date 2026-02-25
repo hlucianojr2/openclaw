@@ -12,7 +12,7 @@
 import { app } from "electron";
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createCipheriv } from "node:crypto";
 import type { ContainerManager } from "../docker/container-manager.js";
 import type { DockerEngineClient } from "../docker/engine-client.js";
 import { OPENCLAW_IMAGE, DEFAULT_GATEWAY_PORT, DEFAULT_BRIDGE_PORT } from "../../shared/constants.js";
@@ -118,6 +118,9 @@ export class InstallerEngine {
       // Stage 5: Create container
       onProgress({ stage: "creating-container", percent: 70, message: "Configuring OpenClaw container…" });
       const gatewayToken = randomBytes(32).toString("hex");
+      // channelKey is a 32-byte key shared with the container via env so it can
+      // decrypt openclaw-channels.json on first boot.
+      const channelKey = randomBytes(32);
 
       await this.containers.createEnvironment({
         configDir,
@@ -138,7 +141,7 @@ export class InstallerEngine {
       const channels = config.selectedChannels ?? [];
       if (channels.length > 0) {
         onProgress({ stage: "configuring-channels", percent: 78, message: `Applying configuration for ${channels.length} channel(s)…` });
-        await this.writeChannelConfig(configDir, config, channels);
+        await this.writeChannelConfig(configDir, channels, channelKey);
       }
 
       // Stage 8: Start
@@ -186,20 +189,32 @@ export class InstallerEngine {
 
   /**
    * Write channel configuration to the config dir as openclaw-channels.json.
-   * Keys are channel IDs; values are their config maps (tokens, credentials, etc.).
-   * Sensitive values are written to the volume — not transmitted over IPC after setup.
+   *
+   * The file is AES-256-GCM encrypted so credentials (bot tokens, OAuth tokens,
+   * passwords) cannot be read by other OS users or processes.
+   * Format: <12-byte IV> <16-byte auth-tag> <ciphertext>
+   *
+   * The same channelKey is stored in the container env so the OpenClaw gateway
+   * can decrypt on first boot. File permissions are set to 0o600 as defence-in-depth.
    */
   private async writeChannelConfig(
     configDir: string,
-    _installerCfg: InstallerConfig,
-    channels: import("../../shared/ipc-types.js").ChannelSelection[],
+    channels: ChannelSelection[],
+    channelKey: Buffer,
   ): Promise<void> {
     const channelEntries: Record<string, Record<string, string>> = {};
     for (const ch of channels) {
       channelEntries[ch.channelId] = ch.config;
     }
-    const filePath = path.join(configDir, "openclaw-channels.json");
-    await writeFile(filePath, JSON.stringify({ channels: channelEntries }, null, 2), "utf8");
+    const plaintext = JSON.stringify({ channels: channelEntries });
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", channelKey, iv);
+    const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    // Layout: [IV 12 bytes][AuthTag 16 bytes][Ciphertext]
+    const payload = Buffer.concat([iv, authTag, encrypted]);
+    const filePath = path.join(configDir, "openclaw-channels.enc");
+    await writeFile(filePath, payload, { mode: 0o600 });
   }
 }
 

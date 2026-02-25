@@ -89,7 +89,7 @@ describe("InstallerEngine — selectedSkills & selectedChannels", () => {
     expect(stages).toContain("configuring-channels");
   });
 
-  it("writes openclaw-channels.json when channels selected", async () => {
+  it("writes openclaw-channels.enc (encrypted) when channels selected", async () => {
     const config = baseConfig({
       selectedChannels: [
         { channelId: "telegram", config: { botToken: "123:abc" } },
@@ -99,11 +99,19 @@ describe("InstallerEngine — selectedSkills & selectedChannels", () => {
     await engine.install(config, () => undefined);
 
     const calls = (writeFile).mock.calls;
-    const chCall = calls.find((c: unknown[]) => String(c[0]).endsWith("openclaw-channels.json"));
+    // File is now AES-256-GCM encrypted: look for .enc extension
+    const chCall = calls.find((c: unknown[]) => String(c[0]).endsWith("openclaw-channels.enc"));
     expect(chCall).toBeDefined();
-    const written = JSON.parse(String(chCall![1])) as { channels: Record<string, unknown> };
-    expect(written.channels["telegram"]).toEqual({ botToken: "123:abc" });
-    expect(written.channels["discord"]).toEqual({ botToken: "MTk4…" });
+
+    // Second arg must be a Buffer (binary ciphertext), not a string
+    const payload = chCall![1] as Buffer;
+    expect(Buffer.isBuffer(payload)).toBe(true);
+    // Layout: [12-byte IV][16-byte AuthTag][ciphertext] → min 29 bytes
+    expect(payload.length).toBeGreaterThan(28);
+
+    // Third arg must include mode 0o600
+    const opts = chCall![2] as { mode: number };
+    expect(opts?.mode).toBe(0o600);
   });
 
   it("stage order is correct when both skills and channels present", async () => {

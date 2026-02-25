@@ -20,7 +20,7 @@ import { rm } from "node:fs/promises";
 const execAsync = promisify(exec);
 
 /** Unique tmp file prefix so concurrent speaks don't collide. */
-let _tmpCounter = 0;
+// (instance field; see _tmpCounter below)
 
 export class VoiceGuide {
   private enabled = true;
@@ -28,6 +28,10 @@ export class VoiceGuide {
   private queue: string[] = [];
   /** pid of the currently-playing audio process (for stop()). */
   private currentPlayerPid: number | undefined;
+  /** Counter for unique tmp filenames — instance-scoped to avoid test cross-contamination. */
+  private _tmpCounter = 0;
+  /** The active processQueue() promise, so speak() callers can await narration completion. */
+  private queueDrain: Promise<void> = Promise.resolve();
 
   /** Enable or disable narration. */
   setEnabled(enabled: boolean): void {
@@ -39,15 +43,19 @@ export class VoiceGuide {
   }
 
   /**
-   * Speak a message. Non-blocking — queues if already speaking.
+   * Speak a message.
+   * Returns a Promise that resolves when the queued text has finished playing,
+   * so `await voice.speak(text)` guarantees the narration is complete before
+   * the caller continues.
    */
   async speak(text: string): Promise<void> {
     if (!this.enabled) {return;}
 
     this.queue.push(text);
     if (!this.speaking) {
-      await this.processQueue();
+      this.queueDrain = this.processQueue();
     }
+    return this.queueDrain;
   }
 
   private async processQueue(): Promise<void> {
@@ -80,7 +88,7 @@ export class VoiceGuide {
         EdgeTTS: new (opts: Record<string, string>) => { ttsPromise(text: string, path: string): Promise<void> };
       };
 
-      const tmpFile = join(tmpdir(), `occc-tts-${Date.now()}-${++_tmpCounter}.mp3`);
+      const tmpFile = join(tmpdir(), `occc-tts-${Date.now()}-${++this._tmpCounter}.mp3`);
       const tts = new EdgeTTS({ voice: "en-US-JennyNeural", lang: "en-US" });
       await tts.ttsPromise(text, tmpFile);
 
@@ -104,8 +112,16 @@ export class VoiceGuide {
       // mpg123 or ffplay for MP3; fall back to paplay
       cmd = `mpg123 -q ${JSON.stringify(filePath)} 2>/dev/null || ffplay -nodisp -autoexit -loglevel quiet ${JSON.stringify(filePath)}`;
     } else {
-      // Windows: PowerShell Media.SoundPlayer only reads WAV; use Media.Player
-      cmd = `powershell -c "$p=(New-Object Media.SoundPlayer); $p.SoundLocation=${JSON.stringify(filePath)}; $p.PlaySync()"`;
+      // Windows: use PresentationCore MediaPlayer which handles MP3 natively.
+      // SoundPlayer is WAV-only; MediaPlayer supports all Windows Media formats.
+      cmd = [
+        `powershell -c "Add-Type -AssemblyName PresentationCore;`,
+        `$mp = New-Object System.Windows.Media.MediaPlayer;`,
+        `$mp.Open([uri]${JSON.stringify(filePath)});`,
+        `$mp.Play();`,
+        `Start-Sleep -Milliseconds (($mp.NaturalDuration.TimeSpan.TotalMilliseconds) + 500);`,
+        `$mp.Stop()"`,
+      ].join(" ");
     }
     const child = exec(cmd);
     this.currentPlayerPid = child.pid;

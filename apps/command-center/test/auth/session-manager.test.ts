@@ -57,11 +57,16 @@ describe("resolve()", () => {
   });
 
   it("returns a copy (not the same reference)", () => {
-    const { token } = manager.createSession("u1", "admin");
-    const a = manager.resolve(token);
-    const b = manager.resolve(token);
-    expect(a).not.toBe(b);
-    expect(a).toEqual(b);
+    vi.useFakeTimers();
+    try {
+      const { token } = manager.createSession("u1", "admin");
+      const a = manager.resolve(token);
+      const b = manager.resolve(token);
+      expect(a).not.toBe(b);
+      expect(a).toEqual(b);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
