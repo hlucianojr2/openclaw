@@ -622,6 +622,8 @@ function StepReview({ config, onInstall }: { config: WizardConfig; onInstall: ()
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", margin: "20px 0" }}>
         <ReviewRow label="AI Provider" value={`${llm?.icon} ${llm?.label}`} />
         <ReviewRow label="API Key" value={config.llmApiKey ? "••••••••" : "Not set"} />
+        <ReviewRow label="Skills" value={config.selectedSkills.length > 0 ? `${config.selectedSkills.length} selected` : "None selected"} />
+        <ReviewRow label="Channels" value={config.enabledChannels.length > 0 ? `${config.enabledChannels.length} enabled` : "None selected"} />
         <ReviewRow label="Backup" value={config.githubRepo || "Not configured"} />
         <ReviewRow label="Gateway Port" value={String(config.gatewayPort)} />
         <ReviewRow label="Bridge Port" value={String(config.bridgePort)} />
@@ -667,10 +669,12 @@ function StepInstalling({ config, onComplete }: { config: WizardConfig; onComple
       if (p.stage === "error") {setError(p.error ?? "Installation failed.");}
     });
 
-    // Start the installation
-    occc.invoke("occc:install:run", {
+    // Start the installation via typed bridge method
+    occc.installRun({
       llmProvider: config.llmProvider,
       llmApiKey: config.llmApiKey,
+      selectedSkills: config.selectedSkills,
+      enabledChannels: config.enabledChannels,
       githubPat: config.githubPat,
       githubRepo: config.githubRepo,
       voiceEnabled: config.voiceEnabled,
@@ -742,7 +746,7 @@ const shell: Record<string, React.CSSProperties> = {
   progressBar: { display: "flex", alignItems: "flex-start", justifyContent: "center", gap: "0", padding: "20px 48px 16px", position: "relative" },
   progressItem: { display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", flex: 1, position: "relative", zIndex: 1 },
   progressDot: { width: "28px", height: "28px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 700, color: "white", transition: "all 300ms" },
-  progressLine: { position: "absolute", top: "34px", left: "calc(50% / 6 + 32px)", right: "calc(50% / 6 + 32px)", height: "2px", background: "var(--surface-2)", zIndex: 0 },
+  progressLine: { position: "absolute", top: "34px", left: "calc(50% / 9 + 32px)", right: "calc(50% / 9 + 32px)", height: "2px", background: "var(--surface-2)", zIndex: 0 },
   progressFill: { height: "100%", background: "var(--accent-primary)", transition: "width 400ms" },
   content: { flex: 1, overflowY: "auto", padding: "0 32px 32px" },
 };

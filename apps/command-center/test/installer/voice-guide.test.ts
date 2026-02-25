@@ -18,7 +18,14 @@ vi.mock("node-edge-tts", () => ({
 vi.mock("node:child_process", () => ({
   exec: vi.fn((_cmd: string, cb?: (err: null, stdout: string, stderr: string) => void) => {
     if (cb) { cb(null, "", ""); }
-    return { pid: 9999, on: vi.fn() };
+    const child = {
+      pid: 9999,
+      on: vi.fn((event: string, handler: (code: number) => void) => {
+        // Immediately resolve the "close" listener so playAudioFile() doesn't hang
+        if (event === "close") { handler(0); }
+      }),
+    };
+    return child;
   }),
   promisify: vi.fn(() => vi.fn().mockResolvedValue({ stdout: "", stderr: "" })),
 }));
@@ -54,6 +61,23 @@ describe("VoiceGuide", () => {
   it("speak() resolves when disabled (no-op)", async () => {
     guide.setEnabled(false);
     await expect(guide.speak("hello")).resolves.toBeUndefined();
+  });
+
+  it("speak() returns a Promise that resolves after processing (queueDrain)", async () => {
+    // Spy on processQueue so each iteration resolves immediately without
+    // triggering the real audio path (exec "close" event never fires in tests).
+    // The mock sets the speaking flag to simulate real behaviour so the second
+    // speak() call coalesces onto the existing drain promise.
+    const guideMut = guide as unknown as { speaking: boolean; processQueue: () => Promise<void> };
+    vi.spyOn(guideMut, "processQueue").mockImplementation(async function pollDrain() {
+      guideMut.speaking = true;
+      await Promise.resolve();
+      guideMut.speaking = false;
+    });
+
+    const p1 = guide.speak("first message");
+    const p2 = guide.speak("second message");
+    await expect(Promise.all([p1, p2])).resolves.toBeDefined();
   });
 
   it("stop() clears queue without throwing", () => {

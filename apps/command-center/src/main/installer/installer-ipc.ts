@@ -9,7 +9,7 @@ import { DockerInstaller } from "./docker-installer.js";
 import { VoiceGuide } from "./voice-guide.js";
 import { GitHubBackupSetup } from "./github-setup.js";
 import { InstallerEngine, type InstallerConfig } from "./installer-engine.js";
-import { SKILL_CATALOG } from "./skill-catalog.js";
+import { SKILL_CATALOG, findSkillById } from "./skill-catalog.js";
 import { CHANNEL_CATALOG, validateChannelConfig } from "./channel-catalog.js";
 import type { DockerEngineClient } from "../docker/engine-client.js";
 import type { ContainerManager } from "../docker/container-manager.js";
@@ -93,6 +93,30 @@ export function registerInstallerIpcHandlers(
   // ─── Install ────────────────────────────────────────────────────────
 
   ipcMain.handle(IPC_CHANNELS.INSTALL_RUN, async (event, config: InstallerConfig) => {
+    // Guard: reject any skill not in the catalog or requiring elevated auth.
+    // Admin-review skills cannot be installed during the pre-auth wizard.
+    const selectedSkills: string[] = Array.isArray(config.selectedSkills) ? config.selectedSkills : [];
+    const disallowedSkills = selectedSkills.filter((id) => {
+      const entry = findSkillById(id);
+      return !entry || entry.approvalLevel === "admin-review" || entry.approvalLevel === "blocked";
+    });
+    if (disallowedSkills.length > 0) {
+      throw new Error(`Disallowed or unknown skills: ${disallowedSkills.join(", ")}`);
+    }
+
+    // Guard: re-validate all channel configs server-side before the engine writes
+    // them to disk (the renderer may have altered values after the validate step).
+    const selectedChannels = Array.isArray(config.selectedChannels) ? config.selectedChannels : [];
+    for (const ch of selectedChannels) {
+      if (typeof ch.channelId !== "string" || typeof ch.config !== "object" || ch.config === null) {
+        throw new Error(`Invalid channel entry: ${JSON.stringify(ch)}`);
+      }
+      const result = validateChannelConfig(ch.channelId, ch.config);
+      if (!result.valid) {
+        throw new Error(`Channel config invalid for '${ch.channelId}': ${result.error}`);
+      }
+    }
+
     await engine.install(config, (progress) => {
       // Push progress to the renderer via the sender
       event.sender.send(IPC_CHANNELS.INSTALL_PROGRESS, progress);
