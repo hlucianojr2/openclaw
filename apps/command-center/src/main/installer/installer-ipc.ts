@@ -15,6 +15,28 @@ import type { DockerEngineClient } from "../docker/engine-client.js";
 import type { ContainerManager } from "../docker/container-manager.js";
 import type { AuthEngine } from "../auth/auth-engine.js";
 
+/**
+ * Coerce every value in a raw channel config object to a string so
+ * validateChannelConfig can safely call value.trim() without risk of
+ * TypeError. The renderer may send numbers, booleans, or nulls for
+ * fields that are typed as strings in the catalog.
+ */
+function coerceChannelConfig(raw: object): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (v === null || v === undefined) {
+      out[k] = "";
+    } else if (typeof v === "string") {
+      out[k] = v;
+    } else if (typeof v === "number" || typeof v === "boolean") {
+      out[k] = String(v);
+    } else {
+      out[k] = JSON.stringify(v);
+    }
+  }
+  return out;
+}
+
 export function registerInstallerIpcHandlers(
   docker: DockerEngineClient,
   containers: ContainerManager,
@@ -103,6 +125,15 @@ export function registerInstallerIpcHandlers(
       throw new Error("Installation already completed — INSTALL_RUN is disabled");
     }
 
+    // Guard: validate required string fields (IPC args are plain JSON; TS types
+    // are not enforced at runtime — a malformed renderer can send any value).
+    if (typeof config.llmProvider !== "string" || !config.llmProvider) {
+      throw new Error("llmProvider must be a non-empty string");
+    }
+    if (typeof config.llmApiKey !== "string") {
+      throw new Error("llmApiKey must be a string");
+    }
+
     // Guard: validate optional port overrides before they reach the Docker layer.
     const portInRange = (p: unknown): boolean =>
       typeof p === "number" && Number.isInteger(p) && p >= 1024 && p <= 65535;
@@ -131,7 +162,7 @@ export function registerInstallerIpcHandlers(
       if (typeof ch.channelId !== "string" || typeof ch.config !== "object" || ch.config === null) {
         throw new Error(`Invalid channel entry: ${JSON.stringify(ch)}`);
       }
-      const result = validateChannelConfig(ch.channelId, ch.config);
+      const result = validateChannelConfig(ch.channelId, coerceChannelConfig(ch.config));
       if (!result.valid) {
         throw new Error(`Channel config invalid for '${ch.channelId}': ${result.error}`);
       }
@@ -164,20 +195,7 @@ export function registerInstallerIpcHandlers(
       if (typeof config !== "object" || config === null || Array.isArray(config)) {
         return { valid: false, error: "config must be an object" };
       }
-      // Coerce values to strings (renderer may send mixed types)
-      const safeConfig: Record<string, string> = {};
-      for (const [k, v] of Object.entries(config as Record<string, unknown>)) {
-        if (v === null || v === undefined) {
-          safeConfig[k] = "";
-        } else if (typeof v === "string") {
-          safeConfig[k] = v;
-        } else if (typeof v === "number" || typeof v === "boolean") {
-          safeConfig[k] = String(v);
-        } else {
-          safeConfig[k] = JSON.stringify(v);
-        }
-      }
-      return validateChannelConfig(channelId, safeConfig);
+      return validateChannelConfig(channelId, coerceChannelConfig(config));
     },
   );
 }
