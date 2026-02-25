@@ -103,6 +103,16 @@ export function registerInstallerIpcHandlers(
       throw new Error("Installation already completed — INSTALL_RUN is disabled");
     }
 
+    // Guard: validate optional port overrides before they reach the Docker layer.
+    const portInRange = (p: unknown): boolean =>
+      typeof p === "number" && Number.isInteger(p) && p >= 1024 && p <= 65535;
+    if (config.gatewayPort !== undefined && !portInRange(config.gatewayPort)) {
+      throw new Error("gatewayPort must be an integer in range 1024–65535");
+    }
+    if (config.bridgePort !== undefined && !portInRange(config.bridgePort)) {
+      throw new Error("bridgePort must be an integer in range 1024–65535");
+    }
+
     // Guard: reject any skill not in the catalog or requiring elevated auth.
     // Admin-review skills cannot be installed during the pre-auth wizard.
     const selectedSkills: string[] = Array.isArray(config.selectedSkills) ? config.selectedSkills : [];

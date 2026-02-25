@@ -64,10 +64,12 @@ const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 /** Number of recovery codes to generate per user. */
 const RECOVERY_CODE_COUNT = 8;
 
-/** Pending TOTP setup: userId → { secret, expiresAt } */
+/** Pending TOTP setup: userId → { secret, expiresAt, failedAttempts } */
 interface PendingTotpSetup {
   secret: string;
   expiresAt: number;
+  /** Running count of failed confirmation attempts — invalidates entry at MAX_TOTP_ATTEMPTS. */
+  failedAttempts: number;
 }
 
 /** Cleanup interval for expired pending logins and TOTP setups (60 s). */
@@ -348,6 +350,7 @@ export class AuthEngine {
     this.pendingTotpSetups.set(userId, {
       secret,
       expiresAt: Date.now() + 10 * 60 * 1000, // 10 min to complete enrollment
+      failedAttempts: 0,
     });
 
     // Generate QR code as data URL
@@ -374,7 +377,16 @@ export class AuthEngine {
     }
 
     const valid = authenticator.verify({ token: params.code, secret: pending.secret });
-    if (!valid) { return false; }
+    if (!valid) {
+      // Track failures and invalidate the setup nonce after MAX_TOTP_ATTEMPTS to block brute-force.
+      pending.failedAttempts++;
+      this.store.auditLog({ event: "totp_setup_failed", userId: params.userId, method: "totp", success: false });
+      if (pending.failedAttempts >= MAX_TOTP_ATTEMPTS) {
+        this.pendingTotpSetups.delete(params.userId);
+        this.store.auditLog({ event: "totp_setup_invalidated", userId: params.userId, method: "totp", success: false });
+      }
+      return false;
+    }
 
     // Consume the pending secret and persist it
     this.pendingTotpSetups.delete(params.userId);

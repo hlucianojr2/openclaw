@@ -11,6 +11,9 @@ import type { AuthEngine } from "./auth-engine.js";
 import type { SessionManager } from "./session-manager.js";
 import { hasPermission } from "./rbac.js";
 
+/** Allowed role values — validated before any cast to UserRole. */
+const VALID_ROLES = new Set(["super-admin", "admin", "operator", "viewer"]);
+
 /** IPC channel prefix for auth operations */
 // All auth channels are already defined in IPC_CHANNELS
 
@@ -125,6 +128,9 @@ export function registerAuthIpcHandlers(
     if (!session.elevated) {
       throw new Error("Elevation required to create users");
     }
+    if (!VALID_ROLES.has(params.role)) {
+      throw new Error(`Invalid role: ${params.role}`);
+    }
     const created = await engine.createUser({
       username: params.username,
       role: params.role as import("../../shared/ipc-types.js").UserRole,
@@ -146,6 +152,9 @@ export function registerAuthIpcHandlers(
     }
     if (!session.elevated) {
       throw new Error("Elevation required to modify user roles");
+    }
+    if (!VALID_ROLES.has(newRole)) {
+      throw new Error(`Invalid role: ${newRole}`);
     }
     // Prevent self-demotion while elevated
     if (userId === session.userId && newRole !== session.role) {
