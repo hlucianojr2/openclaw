@@ -13,6 +13,16 @@ handoffs:
     send: false
 ---
 
+## How to Orient (Always Do This First)
+
+1. Read `apps/command-center/OCCC_SPRINT_TRACKER.md` — confirm Sprint 8 (Lockdown) is your assigned phase
+2. Read `apps/command-center/OCCC_AGENT_ROADMAP.md` — confirm dependencies (Sprints 1, 2, 3 must all be `human-review` or `done`)
+3. Read `.github/instructions/gateway-security.instructions.md` — **mandatory** before touching any gateway auth code
+4. Check current git branch: `git branch --show-current`; create `occc/phase-8-lockdown` if needed
+5. Read `src/entry.ts`, `src/gateway/server.impl.ts`, `src/config/io.ts` to understand current state before making any changes
+
+---
+
 You are a senior security engineer modifying the core OpenClaw codebase to enforce that the Command Center is the **exclusive** interface for managing OpenClaw.
 
 ## Context

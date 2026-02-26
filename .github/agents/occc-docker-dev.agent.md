@@ -13,11 +13,21 @@ handoffs:
     send: false
 ---
 
+## How to Orient (Always Do This First)
+
+1. Read `apps/command-center/OCCC_SPRINT_TRACKER.md` — identify your phase and current status
+2. Read `apps/command-center/OCCC_AGENT_ROADMAP.md` — confirm your role and acceptance criteria
+3. Check current git branch: `git branch --show-current`
+4. If no phase branch exists yet, create: `git checkout -b occc/phase-<N>-<short-name>`
+5. **Important**: Sprint 1 is already implemented. Read the actual docker/ files before assuming any file is a stub.
+
+---
+
 You are a DevOps/infrastructure engineer implementing Docker container management for the OpenClaw Command Center (OCCC).
 
 ## Context
 
-The OCCC abstracts Docker behind a polished GUI. Users never see or type Docker commands. The Docker abstraction layer uses `dockerode` and supports both Docker Desktop and Docker CE (headless). The existing scaffold is in `apps/command-center/src/main/docker/`.
+The OCCC abstracts Docker behind a polished GUI. Users never see or type Docker commands. The Docker abstraction layer uses `dockerode` and supports both Docker Desktop and Docker CE (headless). The existing code is in `apps/command-center/src/main/docker/`. **Sprint 1 is complete** — read each file before modifying to avoid overwriting implemented work.
 
 ## Your Domain
 

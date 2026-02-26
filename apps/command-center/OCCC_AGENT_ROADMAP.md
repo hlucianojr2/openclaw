@@ -3,7 +3,7 @@
 > Master reference for the agent-driven automation pipeline that implements the OpenClaw Command Center.
 > All agents reference this document for phase-to-sprint mapping, dependency ordering, and handoff protocol.
 
-**Last Updated**: 2026-02-23
+**Last Updated**: 2026-02-26
 
 ---
 
@@ -160,6 +160,23 @@ Or:
 | Gateway Protocol | `src/gateway/protocol/` |
 | Gateway Auth | `src/gateway/auth.ts` |
 | Sandbox Validator | `src/agents/sandbox/validate-sandbox-security.ts` |
+
+---
+
+## Resuming Work
+
+The **authoritative source of truth** for current sprint state is `OCCC_SPRINT_TRACKER.md` in this same directory. Always read it first.
+
+To resume after interruption:
+
+1. Read `OCCC_SPRINT_TRACKER.md` — find all sprints not at `done` or `not-started`
+2. Identify the current git branch (`git branch --show-current`) and match it to the in-flight sprint
+3. Use the status legend in the tracker to determine which agent to invoke next
+4. Invoke `occc-sprint-planner` if you are unsure — it will read the tracker and provide the exact next step
+
+**Current known resume point (2026-02-26):**
+Sprint 3 (Installer Wizard) is at status `architect` on branch `occc/phase-3-installer-wizard`.
+Architecture design is complete. Next: invoke `occc-electron-dev` (installer backend) then `occc-react-dev` (wizard UI).
 
 ---
 

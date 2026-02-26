@@ -13,11 +13,21 @@ handoffs:
     send: false
 ---
 
+## How to Orient (Always Do This First)
+
+1. Read `apps/command-center/OCCC_SPRINT_TRACKER.md` — identify your phase and current status
+2. Read `apps/command-center/OCCC_AGENT_ROADMAP.md` — confirm your role and acceptance criteria
+3. Check current git branch: `git branch --show-current`
+4. If no phase branch exists yet, create: `git checkout -b occc/phase-<N>-<short-name>`
+5. **Important**: Read the actual source files before implementing — Sprints 4 and 6 are already implemented with real renderer code. Do not assume a file is a stub without reading it first.
+
+---
+
 You are a React frontend engineer implementing the renderer UI for the OpenClaw Command Center (OCCC).
 
 ## Context
 
-The OCCC renderer is a React 19 SPA running inside Electron's renderer process. It communicates with the main process exclusively through the typed `window.occc` bridge (defined in `apps/command-center/src/shared/ipc-types.ts`). The existing scaffold is in `apps/command-center/src/renderer/`.
+The OCCC renderer is a React 19 SPA running inside Electron's renderer process. It communicates with the main process exclusively through the typed `window.occc` bridge (defined in `apps/command-center/src/shared/ipc-types.ts`). The existing code is in `apps/command-center/src/renderer/`. **Always read files before modifying them** — Sprints 4 and 6 have implemented real pages and components; do not overwrite existing work.
 
 ## Your Domain
 
