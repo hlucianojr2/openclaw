@@ -8,7 +8,7 @@
 
 import type { DockerEngineClient } from "./engine-client.js";
 import type { EnvironmentStatus, ContainerStatus, EnvironmentHealth } from "../../shared/ipc-types.js";
-import { OPENCLAW_IMAGE, DEFAULT_GATEWAY_PORT, DEFAULT_BRIDGE_PORT, USER_FACING } from "../../shared/constants.js";
+import { OPENCLAW_IMAGE, DEFAULT_GATEWAY_PORT, DEFAULT_BRIDGE_PORT } from "../../shared/constants.js";
 
 /** Labels used to identify OCCC-managed containers. */
 const LABELS = {
@@ -31,7 +31,12 @@ export class ContainerManager {
   // ─── Environment Lifecycle ──────────────────────────────────────────────
 
   /**
-   * Create the full OpenClaw environment (network + gateway container).
+   * Create the gateway container and attach it to an existing network.
+   *
+   * Network and volume creation are the caller's responsibility (use
+   * ComposeOrchestrator.up() or InstallerEngine.install() which call
+   * NetworkManager/VolumeManager before this). Separating concerns prevents
+   * double-creation errors when the orchestrator already ensured them.
    */
   async createEnvironment(config: {
     configDir: string;
@@ -40,18 +45,15 @@ export class ContainerManager {
     gatewayPort?: number;
     bridgePort?: number;
     image?: string;
+    /** Name of the pre-existing network to attach to. Defaults to "openclaw-net". */
+    network?: string;
   }): Promise<void> {
     const image = config.image ?? OPENCLAW_IMAGE;
     const gatewayPort = config.gatewayPort ?? DEFAULT_GATEWAY_PORT;
     const bridgePort = config.bridgePort ?? DEFAULT_BRIDGE_PORT;
+    const network = config.network ?? "openclaw-net";
 
-    // 1. Create isolated network
-    await this.client.createNetwork("openclaw-net");
-
-    // 2. Create persistent volume for home directory
-    await this.client.createVolume("openclaw-home");
-
-    // 3. Create gateway container (the primary service)
+    // Create gateway container (the primary service) attached to the existing network
     const gateway = await this.client.createContainer({
       name: "openclaw-gateway",
       image,
@@ -74,7 +76,7 @@ export class ContainerManager {
         [config.configDir]: "/home/node/.openclaw",
         [config.workspaceDir]: "/home/node/.openclaw/workspace",
       },
-      network: "openclaw-net",
+      network,
       labels: roleLabel("gateway"),
     });
 
@@ -115,14 +117,10 @@ export class ContainerManager {
       await this.client.removeContainer(c.Id, true);
     }
 
-    // Remove managed networks
+    // Remove managed networks (use removeNetwork which handles 404 idempotently)
     const networks = await this.client.listManagedNetworks();
     for (const net of networks) {
-      try {
-        await this.client.getEngine().getNetwork(net.Id!).remove();
-      } catch {
-        // Network may already be removed
-      }
+      await this.client.removeNetwork(net.Id);
     }
 
     // Note: volumes are NOT removed on destroy (data preservation).
@@ -211,9 +209,10 @@ export class ContainerManager {
     if (c.State === "running") {
       try {
         const stats = await this.client.getContainerStats(c.Id);
-        cpu = this.calculateCpuPercent(stats);
+        cpu = this.calculateCpuPercent(stats as unknown as Record<string, unknown>);
         memoryMB = Math.round((stats.memory_stats?.usage ?? 0) / 1024 / 1024);
-        const netStats = stats.networks?.eth0;
+        // Use the first available network interface rather than hardcoding eth0
+        const netStats = Object.values(stats.networks ?? {})[0];
         networkRx = netStats?.rx_bytes ?? 0;
         networkTx = netStats?.tx_bytes ?? 0;
       } catch {
@@ -228,14 +227,16 @@ export class ContainerManager {
     return { id: c.Id, name, state, health, cpu, memoryMB, networkRx, networkTx };
   }
 
-  private calculateCpuPercent(stats: Record<string, any>): number {
+  private calculateCpuPercent(stats: Record<string, unknown>): number {
+    const cpuStats = stats.cpu_stats as Record<string, Record<string, number>> | undefined;
+    const precpuStats = stats.precpu_stats as Record<string, Record<string, number>> | undefined;
     const cpuDelta =
-      (stats.cpu_stats?.cpu_usage?.total_usage ?? 0) -
-      (stats.precpu_stats?.cpu_usage?.total_usage ?? 0);
+      (cpuStats?.cpu_usage?.total_usage ?? 0) -
+      (precpuStats?.cpu_usage?.total_usage ?? 0);
     const systemDelta =
-      (stats.cpu_stats?.system_cpu_usage ?? 0) -
-      (stats.precpu_stats?.system_cpu_usage ?? 0);
-    const numCpus = stats.cpu_stats?.online_cpus ?? 1;
+      ((cpuStats as Record<string, number> | undefined)?.system_cpu_usage ?? 0) -
+      ((precpuStats as Record<string, number> | undefined)?.system_cpu_usage ?? 0);
+    const numCpus = (cpuStats as Record<string, number> | undefined)?.online_cpus ?? 1;
 
     if (systemDelta > 0 && cpuDelta > 0) {
       return Math.round((cpuDelta / systemDelta) * numCpus * 100 * 100) / 100;
@@ -248,10 +249,10 @@ export class ContainerManager {
     cli: ContainerStatus,
     sandboxes: ContainerStatus[],
   ): EnvironmentHealth {
-    if (gateway.health === "unhealthy") return "unhealthy";
-    if (gateway.health === "stopped") return "stopped";
-    if (sandboxes.some((s) => s.health === "unhealthy")) return "degraded";
-    if (gateway.health === "healthy") return "healthy";
+    if (gateway.health === "unhealthy") { return "unhealthy"; }
+    if (gateway.health === "stopped") { return "stopped"; }
+    if (sandboxes.some((s) => s.health === "unhealthy")) { return "degraded"; }
+    if (gateway.health === "healthy") { return "healthy"; }
     return "unknown";
   }
 }

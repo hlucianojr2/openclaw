@@ -6,21 +6,41 @@
  */
 
 import { ipcMain } from "electron";
+import { totalmem } from "node:os";
 import { IPC_CHANNELS } from "../shared/ipc-types.js";
 import type { DockerEngineClient } from "./docker/engine-client.js";
 import type { ContainerManager } from "./docker/container-manager.js";
+import type { SessionManager } from "./auth/session-manager.js";
 import { EngineDetector } from "./docker/engine-detector.js";
+import { ImageManager } from "./docker/image-manager.js";
+import { NetworkManager } from "./docker/network-manager.js";
+import { VolumeManager } from "./docker/volume-manager.js";
+import { ComposeOrchestrator } from "./docker/compose-orchestrator.js";
+import { requireSession, requireElevatedSession, validateStackConfig } from "./ipc-guards.js";
 
 interface IpcDependencies {
   dockerClient: DockerEngineClient;
   containerManager: ContainerManager;
+  sessionManager: SessionManager;
 }
 
+
 export function registerIpcHandlers(deps: IpcDependencies): void {
-  const { dockerClient, containerManager } = deps;
+  const { dockerClient, containerManager, sessionManager } = deps;
   const detector = new EngineDetector();
 
-  // ─── Docker Info ────────────────────────────────────────────────────────
+  // Build orchestrator from the shared docker client (stateless wrappers)
+  const imageManager = new ImageManager(dockerClient);
+  const networkManager = new NetworkManager(dockerClient);
+  const volumeManager = new VolumeManager(dockerClient);
+  const orchestrator = new ComposeOrchestrator(
+    containerManager,
+    imageManager,
+    networkManager,
+    volumeManager,
+  );
+
+  // ─── Docker Info (public — used by installer before login) ───────────────
 
   ipcMain.handle(IPC_CHANNELS.DOCKER_INFO, async () => {
     return detector.detect();
@@ -28,19 +48,39 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
 
   // ─── Environment Status ─────────────────────────────────────────────────
 
-  ipcMain.handle(IPC_CHANNELS.ENV_STATUS, async () => {
+  ipcMain.handle(IPC_CHANNELS.ENV_STATUS, async (_event, token: unknown) => {
+    requireSession(token, sessionManager);
     return containerManager.getEnvironmentStatus();
   });
 
-  ipcMain.handle(IPC_CHANNELS.ENV_START, async () => {
+  ipcMain.handle(IPC_CHANNELS.ENV_CREATE, async (_event, token: unknown, rawConfig: unknown) => {
+    requireElevatedSession(token, sessionManager);
+    const config = validateStackConfig(rawConfig);
+    await orchestrator.up(config);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.ENV_START, async (_event, token: unknown) => {
+    requireSession(token, sessionManager);
     await containerManager.startEnvironment();
   });
 
-  ipcMain.handle(IPC_CHANNELS.ENV_STOP, async () => {
+  ipcMain.handle(IPC_CHANNELS.ENV_STOP, async (_event, token: unknown) => {
+    requireSession(token, sessionManager);
     await containerManager.stopEnvironment();
   });
 
-  // ─── System Validation ──────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.ENV_DESTROY, async (_event, token: unknown) => {
+    requireElevatedSession(token, sessionManager);
+    await orchestrator.down();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.ENV_LOGS, async (_event, token: unknown, containerId: unknown) => {
+    requireSession(token, sessionManager);
+    if (typeof containerId !== "string") { return ""; }
+    return dockerClient.getContainerLogs(containerId, { tail: 200 });
+  });
+
+  // ─── System Validation (public — used in installer/setup flow) ────────────
 
   ipcMain.handle(IPC_CHANNELS.SYSTEM_VALIDATE, async () => {
     const dockerInfo = await detector.detect();
@@ -83,7 +123,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
     });
 
     // Memory check
-    const totalMemGB = Math.round((require("node:os").totalmem() / 1024 / 1024 / 1024) * 10) / 10;
+    const totalMemGB = Math.round((totalmem() / 1024 / 1024 / 1024) * 10) / 10;
     checks.push({
       name: "Available Memory",
       description: "At least 4 GB RAM recommended",
@@ -108,19 +148,59 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
 
   // ─── Config (placeholder) ───────────────────────────────────────────────
 
-  ipcMain.handle(IPC_CHANNELS.CONFIG_SECTIONS, async () => {
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SECTIONS, async (_event, token: unknown) => {
+    requireSession(token, sessionManager);
     // Will be populated in Phase 4 — returns config section metadata
     return [];
   });
 
-  ipcMain.handle(IPC_CHANNELS.CONFIG_GET, async (_event, section: string) => {
+  ipcMain.handle(IPC_CHANNELS.CONFIG_GET, async (_event, token: unknown, _section: unknown) => {
+    requireSession(token, sessionManager);
     return {};
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SET, async (_event, token: unknown, section: unknown, values: unknown) => {
+    // Config writes require elevation; forwarded to config-ipc in Phase 4.
+    // For now, validate auth and return a not-yet-implemented signal.
+    requireElevatedSession(token, sessionManager);
+    if (typeof section !== "string") { throw new Error("Invalid section"); }
+    void values; // will be consumed in Phase 4
+    return { ok: false, reason: "Config write not yet implemented" };
   });
 
   // ─── Skills (placeholder) ──────────────────────────────────────────────
 
-  ipcMain.handle(IPC_CHANNELS.SKILLS_LIST, async () => {
+  ipcMain.handle(IPC_CHANNELS.SKILLS_LIST, async (_event, token: unknown) => {
+    requireSession(token, sessionManager);
     // Will be populated in Phase 5
+    return [];
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SKILLS_INSTALL, async (_event, token: unknown, name: unknown) => {
+    requireElevatedSession(token, sessionManager);
+    if (typeof name !== "string" || !name) { throw new Error("Invalid skill name"); }
+    // Skill installation pipeline implemented in Phase 5
+    throw new Error(`Skill installation not yet implemented: ${name}`);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SKILLS_SCAN, async (_event, token: unknown, skillPath: unknown) => {
+    requireSession(token, sessionManager);
+    if (typeof skillPath !== "string") { throw new Error("Invalid path"); }
+    // Skill scanner implemented in Phase 5
+    return { approved: false, findings: ["Scanner not yet implemented"] };
+  });
+
+  // ─── Backup (placeholder) ─────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.BACKUP_CREATE, async (_event, token: unknown) => {
+    requireElevatedSession(token, sessionManager);
+    // Backup pipeline implemented in Phase 7
+    throw new Error("Backup creation not yet implemented");
+  });
+
+  ipcMain.handle(IPC_CHANNELS.BACKUP_HISTORY, async (_event, token: unknown) => {
+    requireSession(token, sessionManager);
+    // Will be populated in Phase 7
     return [];
   });
 }

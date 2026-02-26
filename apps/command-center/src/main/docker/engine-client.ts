@@ -19,8 +19,8 @@ export class DockerEngineClient {
     );
   }
 
-  /** Get the raw dockerode instance for advanced operations. */
-  getEngine(): Dockerode {
+  /** @internal Raw dockerode instance — not for external callers. */
+  private getEngine(): Dockerode {
     return this.docker;
   }
 
@@ -35,8 +35,8 @@ export class DockerEngineClient {
   }
 
   /** Get Docker system info. */
-  async info(): Promise<Dockerode.DockerInfo> {
-    return this.docker.info();
+  async info(): Promise<Record<string, unknown>> {
+    return this.docker.info() as Promise<Record<string, unknown>>;
   }
 
   /** List all containers (running and stopped). */
@@ -71,7 +71,7 @@ export class DockerEngineClient {
 
   /** Get real-time container stats. */
   async getContainerStats(id: string): Promise<Dockerode.ContainerStats> {
-    return this.docker.getContainer(id).stats({ stream: false }) as Promise<Dockerode.ContainerStats>;
+    return this.docker.getContainer(id).stats({ stream: false });
   }
 
   /** Pull an image by name. Returns a progress stream. */
@@ -114,6 +114,7 @@ export class DockerEngineClient {
     return this.docker.createNetwork({
       Name: name,
       Driver: "bridge",
+      CheckDuplicate: true,  // Prevent silent duplicate network creation
       Internal: false,
       Labels: { "ai.openclaw.managed": "true" },
     });
@@ -128,7 +129,7 @@ export class DockerEngineClient {
   }
 
   /** Create a named volume for persistent data. */
-  async createVolume(name: string): Promise<Dockerode.Volume> {
+  async createVolume(name: string): Promise<Dockerode.VolumeCreateResponse> {
     return this.docker.createVolume({
       Name: name,
       Labels: { "ai.openclaw.managed": "true" },
@@ -141,6 +142,42 @@ export class DockerEngineClient {
       filters: { label: ["ai.openclaw.managed=true"] },
     });
     return result.Volumes ?? [];
+  }
+
+  /** Remove a network by ID. */
+  async removeNetwork(id: string): Promise<void> {
+    await this.docker.getNetwork(id).remove();
+  }
+
+  /** Remove a named volume. */
+  async removeVolume(name: string): Promise<void> {
+    await this.docker.getVolume(name).remove({});
+  }
+
+  /** Inspect an image by name/tag. */
+  async inspectImage(name: string): Promise<Dockerode.ImageInspectInfo> {
+    return this.docker.getImage(name).inspect();
+  }
+
+  /** Remove an image by name. */
+  async removeImage(name: string, force = false): Promise<void> {
+    await this.docker.getImage(name).remove({ force });
+  }
+
+  /**
+   * Follow a Docker modem progress stream.
+   * Calls onEnd when the stream finishes; relays each event to onEvent.
+   */
+  followStreamProgress(
+    stream: NodeJS.ReadableStream,
+    onEnd: (err: Error | null) => void,
+    onEvent?: (event: Record<string, unknown>) => void,
+  ): void {
+    this.docker.modem.followProgress(
+      stream,
+      (err) => onEnd(err),
+      onEvent,
+    );
   }
 
   /** Create and start a container with security hardening. */
