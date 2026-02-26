@@ -146,27 +146,8 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
     };
   });
 
-  // ─── Config (placeholder) ───────────────────────────────────────────────
-
-  ipcMain.handle(IPC_CHANNELS.CONFIG_SECTIONS, async (_event, token: unknown) => {
-    requireSession(token, sessionManager);
-    // Will be populated in Phase 4 — returns config section metadata
-    return [];
-  });
-
-  ipcMain.handle(IPC_CHANNELS.CONFIG_GET, async (_event, token: unknown, _section: unknown) => {
-    requireSession(token, sessionManager);
-    return {};
-  });
-
-  ipcMain.handle(IPC_CHANNELS.CONFIG_SET, async (_event, token: unknown, section: unknown, values: unknown) => {
-    // Config writes require elevation; forwarded to config-ipc in Phase 4.
-    // For now, validate auth and return a not-yet-implemented signal.
-    requireElevatedSession(token, sessionManager);
-    if (typeof section !== "string") { throw new Error("Invalid section"); }
-    void values; // will be consumed in Phase 4
-    return { ok: false, reason: "Config write not yet implemented" };
-  });
+  // ─── Config channels are owned by config-ipc.ts (registered in Phase 4). ─
+  // Placeholders removed — no handlers here to avoid duplicate registration.
 
   // ─── Skills (placeholder) ──────────────────────────────────────────────
 

@@ -75,7 +75,11 @@ function getSchemaBundle(): Promise<SchemaBundle> {
       zModule,
       introspect: introspectSchema,
     };
-  })();
+  })().catch((err: unknown) => {
+    // Reset so the next call retries rather than re-using a rejected promise.
+    schemaCachePromise = null;
+    throw err;
+  });
   return schemaCachePromise;
 }
 
@@ -85,15 +89,19 @@ export function registerConfigIpcHandlers(sessions: SessionManager): void {
   const store = new ConfigStore();
 
   // ─── Legacy scaffold stubs (bridge declares these; no active renderer uses them) ─
-  // Return a typed error rather than hanging indefinitely.
+  // Respond immediately rather than hanging. Write channels enforce elevation.
 
-  const notImplemented = (_: unknown, token: string) => {
+  const notImplementedRead = (_: unknown, token: string) => {
     requireConfigRead(sessions, token);
-    throw new Error("Not implemented — use readConfig / writeConfig / validateConfig");
+    throw new Error("Not implemented — use readConfig / validateConfig / getConfigSchema");
   };
-  ipcMain.handle(IPC_CHANNELS.CONFIG_GET, notImplemented);
-  ipcMain.handle(IPC_CHANNELS.CONFIG_SET, notImplemented);
-  ipcMain.handle(IPC_CHANNELS.CONFIG_SECTIONS, notImplemented);
+  const notImplementedWrite = (_: unknown, token: string) => {
+    requireConfigWrite(sessions, token);
+    throw new Error("Not implemented — use writeConfig / patchConfig");
+  };
+  ipcMain.handle(IPC_CHANNELS.CONFIG_GET, notImplementedRead);
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SECTIONS, notImplementedRead);
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SET, notImplementedWrite);
 
   // ─── Read ──────────────────────────────────────────────────────────
 
