@@ -10,10 +10,11 @@
 import { ipcMain } from "electron";
 import { ConfigStore } from "./config-store.js";
 import type { SessionManager } from "../auth/session-manager.js";
-import type { AuthSession } from "../../shared/ipc-types.js";
+import type { AuthSession, SchemaSectionMeta } from "../../shared/ipc-types.js";
 import { hasPermission } from "../auth/rbac.js";
 import { IPC_CHANNELS } from "../../shared/ipc-types.js";
-import type { ZodSafeParseable, SchemaSectionMeta } from "./schema-introspector.js";
+import type { ZodSafeParseable } from "./schema-introspector.js";
+import { deepDiff } from "./schema-introspector.js";
 
 // ─── Auth Guards ────────────────────────────────────────────────────────────
 
@@ -50,39 +51,49 @@ interface SchemaBundle {
   sensitiveRegistry: { has(s: unknown): boolean } | null;
   zModule: typeof import("zod");
   introspect: typeof import("./schema-introspector.js").introspectSchema;
-  deepDiff: typeof import("./schema-introspector.js").deepDiff;
 }
 
-let schemaCache: SchemaBundle | null = null;
+// Single in-flight promise so concurrent warmpup calls share one import.
+let schemaCachePromise: Promise<SchemaBundle> | null = null;
 
 /**
  * Lazily load the OpenClaw Zod schema and introspector.
- * Cached after first successful import.
+ * Concurrent calls share a single import promise (no duplicate work).
  */
-async function getSchemaBundle(): Promise<SchemaBundle> {
-  if (schemaCache) { return schemaCache; }
+function getSchemaBundle(): Promise<SchemaBundle> {
+  schemaCachePromise ??= (async () => {
+    // Dynamically import the Zod schema from the main OpenClaw package.
+    // Path: apps/command-center/src/main/config/ → repo-root/src/config/
+    const schemaUrl = new URL("../../../../../../src/config/zod-schema.js", import.meta.url);
+    const { OpenClawSchema, sensitiveRegistry } = await import(schemaUrl.pathname);
+    const zModule = await import("zod");
+    const { introspectSchema } = await import("./schema-introspector.js");
 
-  // Dynamically import the Zod schema from the main OpenClaw package.
-  // Path: apps/command-center/src/main/config/ → repo-root/src/config/
-  const schemaUrl = new URL("../../../../../../src/config/zod-schema.js", import.meta.url);
-  const { OpenClawSchema, sensitiveRegistry } = await import(schemaUrl.pathname);
-  const zModule = await import("zod");
-  const { introspectSchema, deepDiff } = await import("./schema-introspector.js");
-
-  schemaCache = {
-    schema: OpenClawSchema as ZodSafeParseable,
-    sensitiveRegistry: sensitiveRegistry ?? null,
-    zModule,
-    introspect: introspectSchema,
-    deepDiff,
-  };
-  return schemaCache;
+    return {
+      schema: OpenClawSchema as ZodSafeParseable,
+      sensitiveRegistry: sensitiveRegistry ?? null,
+      zModule,
+      introspect: introspectSchema,
+    };
+  })();
+  return schemaCachePromise;
 }
 
 // ─── Handler Registration ───────────────────────────────────────────────────
 
 export function registerConfigIpcHandlers(sessions: SessionManager): void {
   const store = new ConfigStore();
+
+  // ─── Legacy scaffold stubs (bridge declares these; no active renderer uses them) ─
+  // Return a typed error rather than hanging indefinitely.
+
+  const notImplemented = (_: unknown, token: string) => {
+    requireConfigRead(sessions, token);
+    throw new Error("Not implemented — use readConfig / writeConfig / validateConfig");
+  };
+  ipcMain.handle(IPC_CHANNELS.CONFIG_GET, notImplemented);
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SET, notImplemented);
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SECTIONS, notImplemented);
 
   // ─── Read ──────────────────────────────────────────────────────────
 
@@ -161,19 +172,14 @@ export function registerConfigIpcHandlers(sessions: SessionManager): void {
   });
 
   // ─── Diff ─────────────────────────────────────────────────────────
+  // deepDiff is a pure utility — no schema load needed.
 
   ipcMain.handle(
     IPC_CHANNELS.CONFIG_DIFF,
     async (_event, token: string, proposed: Record<string, unknown>) => {
       requireConfigRead(sessions, token);
-
       const { config: current } = await store.read();
-      try {
-        const { deepDiff } = await getSchemaBundle();
-        return deepDiff(current, proposed);
-      } catch {
-        return [];
-      }
+      return deepDiff(current, proposed);
     },
   );
 }

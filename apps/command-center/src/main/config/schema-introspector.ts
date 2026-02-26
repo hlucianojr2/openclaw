@@ -18,43 +18,14 @@
  */
 
 import type { z } from "zod";
-import type { ConfigDiffEntry, SchemaFieldType } from "../../shared/ipc-types.js";
+import type {
+  ConfigDiffEntry,
+  SchemaFieldMeta,
+  SchemaSectionMeta,
+} from "../../shared/ipc-types.js";
 
-// ─── Output Types ───────────────────────────────────────────────────────────
-
-export interface SchemaFieldMeta {
-  /** Field key within its parent object. */
-  key: string;
-  /** Full dotted path from root (e.g. ["gateway", "auth", "mode"]). */
-  path: string[];
-  /** Renderer field type. */
-  type: SchemaFieldType;
-  /** Whether the field is required (not optional). */
-  required: boolean;
-  /** Whether the value contains secrets (tokens, passwords, API keys). */
-  sensitive: boolean;
-  /** Human-readable description from `.describe()`. */
-  description?: string;
-  /** Enum/select options (for union-of-literals or z.enum). */
-  options?: string[];
-  /** Numeric minimum constraint. */
-  min?: number;
-  /** Numeric maximum constraint. */
-  max?: number;
-  /** Default value from z.default(). */
-  defaultValue?: unknown;
-  /** Child fields for nested objects. */
-  children?: SchemaFieldMeta[];
-}
-
-export interface SchemaSectionMeta {
-  /** Top-level key in the config object (e.g. "gateway", "agents"). */
-  key: string;
-  /** Human-readable label derived from the key. */
-  label: string;
-  /** Flat + nested field metadata. */
-  fields: SchemaFieldMeta[];
-}
+// Re-export so callers that import from schema-introspector.ts continue to work.
+export type { SchemaFieldMeta, SchemaSectionMeta };
 
 // ─── Internal Zod v4 Def Types ──────────────────────────────────────────────
 
