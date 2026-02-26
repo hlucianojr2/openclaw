@@ -40,7 +40,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-// Mock ConfigStore
+// Mock ConfigStore — needs to be a class (used with `new`)
 const mockRead = vi.fn().mockResolvedValue({
   config: { gateway: { port: 18789 } },
   raw: "gateway:\n  port: 18789\n",
@@ -51,14 +51,16 @@ const mockWrite = vi.fn().mockResolvedValue({ ok: true, checksum: "def456" });
 const mockPatch = vi.fn().mockResolvedValue({ ok: true, checksum: "ghi789" });
 const mockGetConfigPath = vi.fn().mockReturnValue("/home/user/.openclaw/config.yaml");
 
-vi.mock("../../src/main/config/config-store.js", () => ({
-  ConfigStore: vi.fn().mockImplementation(() => ({
-    read: mockRead,
-    write: mockWrite,
-    patch: mockPatch,
-    getConfigPath: mockGetConfigPath,
-  })),
-}));
+vi.mock("../../src/main/config/config-store.js", () => {
+  return {
+    ConfigStore: class MockConfigStore {
+      read = mockRead;
+      write = mockWrite;
+      patch = mockPatch;
+      getConfigPath = mockGetConfigPath;
+    },
+  };
+});
 
 // Mock rbac
 vi.mock("../../src/main/auth/rbac.js", () => ({

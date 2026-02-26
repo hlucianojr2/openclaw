@@ -170,7 +170,7 @@ export function registerConfigIpcHandlers(sessions: SessionManager): void {
       const { config: current } = await store.read();
       try {
         const { deepDiff } = await getSchemaBundle();
-        return deepDiff(current as Record<string, unknown>, proposed);
+        return deepDiff(current, proposed);
       } catch {
         return [];
       }

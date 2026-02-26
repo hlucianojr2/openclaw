@@ -86,11 +86,11 @@ describe("introspectSchema()", () => {
 
     const sections = introspectSchema(schema as never, null, stubZModule);
     expect(sections).toHaveLength(1);
-    expect(sections[0]!.key).toBe("gateway");
-    expect(sections[0]!.label).toBe("Gateway");
-    expect(sections[0]!.fields).toHaveLength(2);
+    expect(sections[0].key).toBe("gateway");
+    expect(sections[0].label).toBe("Gateway");
+    expect(sections[0].fields).toHaveLength(2);
 
-    const portField = sections[0]!.fields.find((f) => f.key === "port");
+    const portField = sections[0].fields.find((f) => f.key === "port");
     expect(portField?.type).toBe("number");
     expect(portField?.description).toBe("The gateway port");
   });
@@ -104,7 +104,7 @@ describe("introspectSchema()", () => {
 
     const sections = introspectSchema(schema as never, null, stubZModule);
     expect(sections).toHaveLength(1);
-    expect(sections[0]!.key).toBe("gateway");
+    expect(sections[0].key).toBe("gateway");
   });
 
   it("maps string fields to 'text' type", () => {
@@ -113,7 +113,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    const field = sections[0]!.fields[0]!;
+    const field = sections[0].fields[0];
     expect(field.type).toBe("text");
     expect(field.sensitive).toBe(false);
   });
@@ -124,7 +124,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    expect(sections[0]!.fields[0]!.type).toBe("boolean");
+    expect(sections[0].fields[0].type).toBe("boolean");
   });
 
   it("maps number fields without constraints", () => {
@@ -133,7 +133,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    const field = sections[0]!.fields[0]!;
+    const field = sections[0].fields[0];
     expect(field.type).toBe("number");
     expect(field.min).toBeUndefined();
     expect(field.max).toBeUndefined();
@@ -149,7 +149,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, zWithConstraints);
-    const field = sections[0]!.fields[0]!;
+    const field = sections[0].fields[0];
     expect(field.min).toBe(1);
     expect(field.max).toBe(100);
   });
@@ -160,7 +160,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    const field = sections[0]!.fields[0]!;
+    const field = sections[0].fields[0];
     expect(field.type).toBe("select");
     expect(field.options).toEqual(["fast", "slow", "normal"]);
   });
@@ -171,7 +171,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    const field = sections[0]!.fields[0]!;
+    const field = sections[0].fields[0];
     expect(field.type).toBe("select");
     expect(field.options).toEqual(["info", "warn", "error"]);
   });
@@ -182,7 +182,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    expect(sections[0]!.fields[0]!.type).toBe("string-array");
+    expect(sections[0].fields[0].type).toBe("string-array");
   });
 
   it("maps z.record to 'record' type", () => {
@@ -191,7 +191,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    expect(sections[0]!.fields[0]!.type).toBe("record");
+    expect(sections[0].fields[0].type).toBe("record");
   });
 
   it("unwraps optional and marks required=false", () => {
@@ -200,7 +200,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    const field = sections[0]!.fields[0]!;
+    const field = sections[0].fields[0];
     expect(field.required).toBe(false);
     expect(field.type).toBe("text");
   });
@@ -211,7 +211,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    const field = sections[0]!.fields[0]!;
+    const field = sections[0].fields[0];
     expect(field.required).toBe(false);
     expect(field.defaultValue).toBe(8080);
     expect(field.type).toBe("number");
@@ -225,8 +225,8 @@ describe("introspectSchema()", () => {
     const registry = { has: (s: unknown) => s === tokenSchema };
 
     const sections = introspectSchema(schema as never, registry as never, stubZModule);
-    expect(sections[0]!.fields[0]!.sensitive).toBe(true);
-    expect(sections[0]!.fields[0]!.type).toBe("password");
+    expect(sections[0].fields[0].sensitive).toBe(true);
+    expect(sections[0].fields[0].type).toBe("password");
   });
 
   it("marks fields as sensitive when inner (optional-wrapped) schema is in registry", () => {
@@ -238,7 +238,7 @@ describe("introspectSchema()", () => {
     const registry = { has: (s: unknown) => s === inner };
 
     const sections = introspectSchema(schema as never, registry as never, stubZModule);
-    expect(sections[0]!.fields[0]!.sensitive).toBe(true);
+    expect(sections[0].fields[0].sensitive).toBe(true);
   });
 
   it("falls back to 'json' type for unknown schema shapes", () => {
@@ -247,7 +247,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    expect(sections[0]!.fields[0]!.type).toBe("json");
+    expect(sections[0].fields[0].type).toBe("json");
   });
 
   it("builds correct field paths", () => {
@@ -260,11 +260,11 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    const authField = sections[0]!.fields[0]!;
+    const authField = sections[0].fields[0];
     expect(authField.key).toBe("auth");
     // auth is a nested object — its children should have full paths
     expect(authField.children).toBeDefined();
-    const modeField = authField.children![0]!;
+    const modeField = authField.children![0];
     expect(modeField.path).toEqual(["gateway", "auth", "mode"]);
   });
 
@@ -274,7 +274,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    expect(sections[0]!.label).toBe("Gateway Auth");
+    expect(sections[0].label).toBe("Gateway Auth");
   });
 
   it("handles top-level primitive fields (non-object sections)", () => {
@@ -284,10 +284,10 @@ describe("introspectSchema()", () => {
 
     const sections = introspectSchema(schema as never, null, stubZModule);
     expect(sections).toHaveLength(1);
-    expect(sections[0]!.key).toBe("version");
+    expect(sections[0].key).toBe("version");
     // A non-object top-level key yields a single-field section
-    expect(sections[0]!.fields).toHaveLength(1);
-    expect(sections[0]!.fields[0]!.type).toBe("text");
+    expect(sections[0].fields).toHaveLength(1);
+    expect(sections[0].fields[0].type).toBe("text");
   });
 
   it("handles z.array of non-strings as json fallback", () => {
@@ -298,7 +298,7 @@ describe("introspectSchema()", () => {
     });
 
     const sections = introspectSchema(schema as never, null, stubZModule);
-    expect(sections[0]!.fields[0]!.type).toBe("json");
+    expect(sections[0].fields[0].type).toBe("json");
   });
 
   it("returns correct SchemaSectionMeta shape", () => {
@@ -398,8 +398,8 @@ describe("deepDiff()", () => {
     // With maxDepth=2, should compare a.b.c as JSON rather than recursing into d
     const result = deepDiff(old, cur, "", 2);
     expect(result).toHaveLength(1);
-    expect(result[0]!.path).toBe("a.b.c");
-    expect(result[0]!.type).toBe("changed");
+    expect(result[0].path).toBe("a.b.c");
+    expect(result[0].type).toBe("changed");
   });
 
   it("uses default maxDepth of 20", () => {
@@ -413,7 +413,7 @@ describe("deepDiff()", () => {
     // Should not stack overflow and should detect the change
     const result = deepDiff(old, cur);
     expect(result).toHaveLength(1);
-    expect(result[0]!.type).toBe("changed");
+    expect(result[0].type).toBe("changed");
   });
 
   it("at maxDepth=0, compares objects by JSON serialization", () => {
@@ -421,8 +421,8 @@ describe("deepDiff()", () => {
     const cur = { a: { deep: 2 } };
     const result = deepDiff(old, cur, "", 0);
     expect(result).toHaveLength(1);
-    expect(result[0]!.path).toBe("a");
-    expect(result[0]!.type).toBe("changed");
+    expect(result[0].path).toBe("a");
+    expect(result[0].type).toBe("changed");
   });
 
   it("handles null values correctly", () => {
