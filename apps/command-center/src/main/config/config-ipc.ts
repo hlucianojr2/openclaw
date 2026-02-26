@@ -1,94 +1,203 @@
 /**
- * Config IPC Handlers — exposes config read/write/validate over IPC.
+ * Config IPC Handlers — exposes config read/write/validate/schema/reload/diff over IPC.
  *
  * All write operations require an ELEVATED session (re-auth).
- * Read operations require any valid session.
+ * Read operations require any valid session with config:read permission.
+ *
+ * Phase 4 additions: schema introspection, config reload, diff computation.
  */
 
 import { ipcMain } from "electron";
 import { ConfigStore } from "./config-store.js";
+import { introspectSchema, deepDiff } from "./schema-introspector.js";
 import type { SessionManager } from "../auth/session-manager.js";
 import { hasPermission } from "../auth/rbac.js";
+import { IPC_CHANNELS } from "../../shared/ipc-types.js";
+import type { ConfigDiffEntry, ConfigValidationResult } from "../../shared/ipc-types.js";
+
+// ─── Schema Import Cache ──────────────────────────────────────────────────
+
+/**
+ * Lazily loads the OpenClaw Zod schema + sensitive registry from the monorepo.
+ * Cached after first successful import. Returns null if unavailable.
+ */
+let schemaCache: { OpenClawSchema: unknown; sensitive: unknown; zModule: unknown } | null | undefined;
+
+async function loadSchema(): Promise<typeof schemaCache> {
+  if (schemaCache !== undefined) { return schemaCache; }
+  try {
+    const schemaPath = new URL("../../../../../../src/config/zod-schema.js", import.meta.url);
+    const sensitiveModPath = new URL(
+      "../../../../../../src/config/zod-schema.sensitive.js",
+      import.meta.url,
+    );
+    const zodPath = new URL("../../../../../../node_modules/zod/lib/index.mjs", import.meta.url);
+
+    const [schemaModule, sensitiveModule, zModule] = await Promise.all([
+      import(schemaPath.pathname),
+      import(sensitiveModPath.pathname),
+      import(zodPath.pathname),
+    ]);
+
+    schemaCache = {
+      OpenClawSchema: schemaModule.OpenClawSchema,
+      sensitive: sensitiveModule.sensitive,
+      zModule,
+    };
+    return schemaCache;
+  } catch {
+    schemaCache = null;
+    return null;
+  }
+}
+
+// ─── Session Guards ─────────────────────────────────────────────────────────
+
+function requireConfigRead(token: string, sessions: SessionManager) {
+  const session = sessions.resolve(token);
+  if (!session || !hasPermission(session.role, "config:read")) {
+    throw new Error("Unauthorized");
+  }
+  return session;
+}
+
+function requireConfigWrite(token: string, sessions: SessionManager) {
+  const session = sessions.resolve(token);
+  if (!session || !hasPermission(session.role, "config:write")) {
+    throw new Error("Unauthorized");
+  }
+  if (!session.elevated) {
+    throw new Error("Elevation required to write configuration");
+  }
+  return session;
+}
+
+// ─── Handler Registration ───────────────────────────────────────────────────
 
 export function registerConfigIpcHandlers(sessions: SessionManager): void {
   const store = new ConfigStore();
 
-  // ─── Read ────────────────────────────────────────────────────────────
+  // ─── Read (typed channel) ──────────────────────────────────────────
 
-  ipcMain.handle("occc:config:read", async (_event, token: string) => {
-    const session = sessions.resolve(token);
-    if (!session || !hasPermission(session.role, "config:read")) {
-      throw new Error("Unauthorized");
-    }
-    return store.read();
+  ipcMain.handle(IPC_CHANNELS.CONFIG_READ, async (_event, token: string) => {
+    requireConfigRead(token, sessions);
+    const result = await store.read();
+    return { config: result.config, checksum: result.checksum, configPath: result.configPath };
   });
+
+  // ─── Legacy Read (kept for backward compat with dev invoke()) ──────
 
   ipcMain.handle("occc:config:path", async (_event, token: string) => {
     const session = sessions.resolve(token);
-    if (!session) {throw new Error("Unauthorized");}
+    if (!session) { throw new Error("Unauthorized"); }
     return store.getConfigPath();
   });
 
-  // ─── Write (requires elevation) ──────────────────────────────────────
+  // ─── Config Path (typed channel) ───────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_PATH, async (_event, token: string) => {
+    const session = sessions.resolve(token);
+    if (!session) { throw new Error("Unauthorized"); }
+    return store.getConfigPath();
+  });
+
+  // ─── Write (requires elevation, typed channel) ─────────────────────
 
   ipcMain.handle(
-    "occc:config:write",
+    IPC_CHANNELS.CONFIG_WRITE,
     async (_event, token: string, config: Record<string, unknown>, expectedChecksum?: string) => {
-      const session = sessions.resolve(token);
-      if (!session || !hasPermission(session.role, "config:write")) {
-        throw new Error("Unauthorized");
-      }
-      if (!session.elevated) {
-        throw new Error("Elevation required to write configuration");
-      }
+      requireConfigWrite(token, sessions);
       return store.write(config, expectedChecksum);
     },
   );
 
+  // ─── Patch (requires elevation) ────────────────────────────────────
+
   ipcMain.handle(
     "occc:config:patch",
     async (_event, token: string, patch: Record<string, unknown>, expectedChecksum?: string) => {
-      const session = sessions.resolve(token);
-      if (!session || !hasPermission(session.role, "config:write")) {
-        throw new Error("Unauthorized");
-      }
-      if (!session.elevated) {
-        throw new Error("Elevation required to write configuration");
-      }
+      requireConfigWrite(token, sessions);
       return store.patch(patch, expectedChecksum);
     },
   );
 
-  // ─── Validate ────────────────────────────────────────────────────────
+  // ─── Validate (typed channel) ──────────────────────────────────────
 
   ipcMain.handle(
-    "occc:config:validate",
-    async (_event, token: string, config: Record<string, unknown>) => {
-      const session = sessions.resolve(token);
-      if (!session || !hasPermission(session.role, "config:read")) {
-        throw new Error("Unauthorized");
-      }
-
-      // Dynamically import the Zod schema from the main OpenClaw package.
-      // Path from apps/command-center/src/main/config/ → repo-root/src/config/
-      // In production the built dist will be at a known path; in dev we use the source.
-      try {
-        // Try the monorepo source path first (dev mode)
-        const schemaPath = new URL("../../../../../../src/config/zod-schema.js", import.meta.url);
-        const { OpenClawSchema } = await import(schemaPath.pathname);
-        const result = OpenClawSchema.safeParse(config);
-        if (result.success) {
-          return { valid: true, errors: [] };
-        }
-        const errors = (result.error.issues as { path: (string | number)[]; message: string }[])
-          .map((issue) => ({
-            path: issue.path.join("."),
-            message: issue.message,
-          }));
-        return { valid: false, errors };
-      } catch {
-        // Schema import not available — skip validation
+    IPC_CHANNELS.CONFIG_VALIDATE,
+    async (_event, token: string, config: Record<string, unknown>): Promise<ConfigValidationResult> => {
+      requireConfigRead(token, sessions);
+      const schema = await loadSchema();
+      if (!schema) {
         return { valid: true, errors: [], note: "Schema validation unavailable in this environment" };
+      }
+      const result = (schema.OpenClawSchema as { safeParse(data: unknown): { success: boolean; error?: { issues: { path: (string | number)[]; message: string }[] } } }).safeParse(config);
+      if (result.success) {
+        return { valid: true, errors: [] };
+      }
+      const errors = (result.error?.issues ?? []).map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      }));
+      return { valid: false, errors };
+    },
+  );
+
+  // ─── Schema Introspection (Phase 4) ────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SCHEMA, async (_event, token: string) => {
+    requireConfigRead(token, sessions);
+    const schema = await loadSchema();
+    if (!schema) {
+      return [];
+    }
+    // Cast to the internal ZodSchema shape expected by the introspector
+    const sections = introspectSchema(
+      schema.OpenClawSchema as Parameters<typeof introspectSchema>[0],
+      schema.sensitive as Parameters<typeof introspectSchema>[1],
+      schema.zModule as Parameters<typeof introspectSchema>[2],
+    );
+    return sections;
+  });
+
+  // ─── Diff (Phase 4) ────────────────────────────────────────────────
+
+  ipcMain.handle(
+    IPC_CHANNELS.CONFIG_DIFF,
+    async (_event, token: string, pending: Record<string, unknown>): Promise<ConfigDiffEntry[]> => {
+      requireConfigRead(token, sessions);
+      if (typeof pending !== "object" || pending === null) {
+        throw new Error("Invalid pending config: expected object");
+      }
+      const { config: saved } = await store.read();
+      return deepDiff(saved, pending);
+    },
+  );
+
+  // ─── Reload (Phase 4 — signal container to reload config) ─────────
+
+  ipcMain.handle(
+    IPC_CHANNELS.CONFIG_RELOAD,
+    async (_event, token: string): Promise<{ ok: boolean; error?: string }> => {
+      requireConfigWrite(token, sessions);
+      // In OCCC, the config file is bind-mounted into the Docker container.
+      // The gateway watches for changes via its reload mechanism; sending
+      // SIGHUP to the container signals a graceful config reload.
+      try {
+        const { DockerEngineClient } = await import("../docker/engine-client.js");
+        const { ContainerManager } = await import("../docker/container-manager.js");
+        const client = new DockerEngineClient();
+        const cm = new ContainerManager(client);
+        const status = await cm.getEnvironmentStatus();
+        if (status.gateway.state !== "running") {
+          return { ok: false, error: "Gateway container is not running" };
+        }
+        // Send SIGHUP via the Docker API to trigger graceful reload.
+        const container = client.getContainer(status.gateway.id);
+        await container.kill({ signal: "SIGHUP" });
+        return { ok: true };
+      } catch (err: unknown) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
       }
     },
   );
