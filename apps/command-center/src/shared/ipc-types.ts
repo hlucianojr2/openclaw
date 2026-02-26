@@ -78,6 +78,77 @@ export interface ConfigField {
   description: string;
 }
 
+// ─── Configuration Center (Phase 4) ─────────────────────────────────────────
+
+/** Renderer-facing field type for auto-generated config forms. */
+export type SchemaFieldType =
+  | "text"
+  | "password"
+  | "number"
+  | "boolean"
+  | "select"
+  | "json"
+  | "string-array"
+  | "record";
+
+/** Schema-extracted field metadata for a single config key. */
+export interface SchemaFieldMeta {
+  key: string;
+  path: string[];
+  type: SchemaFieldType;
+  required: boolean;
+  sensitive: boolean;
+  description?: string;
+  options?: string[];
+  min?: number;
+  max?: number;
+  defaultValue?: unknown;
+  children?: SchemaFieldMeta[];
+}
+
+/** Schema-extracted section metadata for a top-level config key. */
+export interface SchemaSectionMeta {
+  key: string;
+  label: string;
+  fields: SchemaFieldMeta[];
+}
+
+/** Result from reading config. */
+export interface ConfigReadResult {
+  config: Record<string, unknown>;
+  raw: string;
+  checksum: string;
+  configPath: string;
+}
+
+/** Result from writing config. */
+export interface ConfigWriteResult {
+  ok: boolean;
+  error?: string;
+  checksum?: string;
+}
+
+/** Validation error detail. */
+export interface ConfigValidationError {
+  path: string;
+  message: string;
+}
+
+/** Result from validating config. */
+export interface ConfigValidationResult {
+  valid: boolean;
+  errors: ConfigValidationError[];
+  note?: string;
+}
+
+/** A single entry in a config diff. */
+export interface ConfigDiffEntry {
+  path: string;
+  type: "added" | "removed" | "changed";
+  oldValue?: unknown;
+  newValue?: unknown;
+}
+
 // ─── Skills ─────────────────────────────────────────────────────────────────
 
 export type SkillRiskLevel = "low" | "medium" | "high" | "blocked";
@@ -259,11 +330,20 @@ export const IPC_CHANNELS = {
   DOCKER_INFO: "occc:docker:info",
   DOCKER_INSTALL_CHECK: "occc:docker:install-check",
 
-  // Config
+  // Config (legacy scaffold — kept for renderer compat)
   CONFIG_GET: "occc:config:get",
   CONFIG_SET: "occc:config:set",
   CONFIG_VALIDATE: "occc:config:validate",
   CONFIG_SECTIONS: "occc:config:sections",
+
+  // Config Center (Phase 4)
+  CONFIG_READ: "occc:config:read",
+  CONFIG_WRITE: "occc:config:write",
+  CONFIG_PATH: "occc:config:path",
+  CONFIG_SCHEMA: "occc:config:schema",
+  CONFIG_RELOAD: "occc:config:reload",
+  CONFIG_DIFF: "occc:config:diff",
+  CONFIG_PATCH: "occc:config:patch",
 
   // Skills
   SKILLS_LIST: "occc:skills:list",
@@ -344,10 +424,20 @@ export interface OcccBridge {
   // Docker
   getDockerInfo(): Promise<DockerInfo>;
 
-  // Config (session required)
+  // Config (session required) — legacy scaffold
   getConfigSections(token: string): Promise<ConfigSection[]>;
   getConfig(token: string, section: string): Promise<Record<string, unknown>>;
   setConfig(token: string, section: string, values: Record<string, unknown>): Promise<void>;
+
+  // Config Center (Phase 4)
+  readConfig(token: string): Promise<ConfigReadResult>;
+  writeConfig(token: string, config: Record<string, unknown>, expectedChecksum?: string): Promise<ConfigWriteResult>;
+  validateConfig(token: string, config: Record<string, unknown>): Promise<ConfigValidationResult>;
+  getConfigPath(token: string): Promise<string>;
+  getConfigSchema(token: string): Promise<SchemaSectionMeta[]>;
+  reloadConfig(token: string): Promise<ConfigReadResult>;
+  getConfigDiff(token: string, proposed: Record<string, unknown>): Promise<ConfigDiffEntry[]>;
+  patchConfig(token: string, patch: Record<string, unknown>, expectedChecksum?: string): Promise<ConfigWriteResult>;
 
   // Skills (session required)
   listSkills(token: string): Promise<SkillInfo[]>;

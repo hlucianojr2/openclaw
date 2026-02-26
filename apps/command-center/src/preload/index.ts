@@ -76,13 +76,31 @@ const bridge: OcccBridge = {
   getDockerInfo: () =>
     ipcRenderer.invoke(IPC_CHANNELS.DOCKER_INFO),
 
-  // ─── Config ───────────────────────────────────────────────────────────
+  // ─── Config (legacy scaffold) ───────────────────────────────────────
   getConfigSections: (token) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SECTIONS, token),
   getConfig: (token, section) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_GET, token, section),
   setConfig: (token, section, values) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SET, token, section, values),
+
+  // ─── Config Center (Phase 4) ──────────────────────────────────────────
+  readConfig: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_READ, token),
+  writeConfig: (token, config, expectedChecksum?) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_WRITE, token, config, expectedChecksum),
+  validateConfig: (token, config) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_VALIDATE, token, config),
+  getConfigPath: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_PATH, token),
+  getConfigSchema: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SCHEMA, token),
+  reloadConfig: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_RELOAD, token),
+  getConfigDiff: (token, proposed) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_DIFF, token, proposed),
+  patchConfig: (token, patch, expectedChecksum?) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_PATCH, token, patch, expectedChecksum),
 
   // ─── Skills ───────────────────────────────────────────────────────────
   listSkills: (token) =>
