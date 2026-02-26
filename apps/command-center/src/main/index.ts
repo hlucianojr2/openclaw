@@ -86,7 +86,7 @@ void app.whenReady().then(async () => {
   // Register IPC handlers (main process ↔ renderer bridge)
   registerIpcHandlers({ dockerClient, containerManager, sessionManager });
   registerAuthIpcHandlers(authEngine, sessionManager);
-  registerInstallerIpcHandlers(dockerClient, containerManager);
+  registerInstallerIpcHandlers(dockerClient, containerManager, authEngine);
   registerConfigIpcHandlers(sessionManager);
 
   // Create main window

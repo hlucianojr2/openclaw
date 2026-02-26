@@ -92,6 +92,79 @@ export interface SkillInfo {
   scanFindings: number;
 }
 
+// ─── Skill Catalog (Wizard Step 6) ──────────────────────────────────────────
+
+/**
+ * Approval level for wizard-time skill selection.
+ *   auto-approved — installed immediately, no prompt
+ *   user-ack      — user must acknowledge before install
+ *   admin-review  — requires elevated session + AI scan before install
+ *   blocked       — never permitted
+ */
+export type SkillApprovalLevel = "auto-approved" | "user-ack" | "admin-review" | "blocked";
+
+/** Extension category tag (used in skill-catalog). */
+export type SkillCategory =
+  | "monitoring"
+  | "analytics"
+  | "productivity"
+  | "utilities"
+  | "development"
+  | "communication"
+  | "system";
+
+export interface SkillCatalogEntry {
+  /** Unique skill identifier (matches extension dir name). */
+  id: string;
+  name: string;
+  description: string;
+  riskLevel: SkillRiskLevel;
+  approvalLevel: SkillApprovalLevel;
+  /** Pre-selected/recommended in the wizard. */
+  recommended: boolean;
+  /** Whether this skill needs a third-party API key. */
+  requiresApiKey: boolean;
+  apiKeyLabel?: string;
+  officialLink?: string;
+  category: SkillCategory;
+}
+
+// ─── Channel Catalog (Wizard Step 7) ─────────────────────────────────────────
+
+export type ChannelCategory = "messaging" | "team-chat" | "email" | "voice" | "social" | "dev";
+
+/** A single config field shown in the channel setup form. */
+export interface ChannelConfigField {
+  key: string;
+  label: string;
+  type: "text" | "password" | "number";
+  description: string;
+  required: boolean;
+  placeholder?: string;
+}
+
+export interface ChannelCatalogEntry {
+  /** Unique channel identifier (matches extension/built-in dir name). */
+  id: string;
+  name: string;
+  description: string;
+  category: ChannelCategory;
+  /** Pre-selected/recommended in the wizard. */
+  recommended: boolean;
+  /** Whether the channel requires external app/bot setup. */
+  requiresAppSetup: boolean;
+  setupGuideUrl?: string;
+  requiredFields: ChannelConfigField[];
+  /** Built into OpenClaw core (no extension install needed). */
+  builtin: boolean;
+}
+
+/** Channel + its config values as collected by the wizard. */
+export interface ChannelSelection {
+  channelId: string;
+  config: Record<string, string>;
+}
+
 // ─── Auth & RBAC ────────────────────────────────────────────────────────────
 
 export type UserRole = "super-admin" | "admin" | "operator" | "viewer";
@@ -221,6 +294,11 @@ export const IPC_CHANNELS = {
   INSTALL_GITHUB_CREATE_REPO: "occc:install:github-create-repo",
   INSTALL_RUN: "occc:install:run",
   INSTALL_PROGRESS: "occc:install:progress",
+
+  // Installer — Skill & Channel Catalog (wizard steps 6–7)
+  INSTALL_GET_SKILL_CATALOG: "occc:install:get-skill-catalog",
+  INSTALL_GET_CHANNEL_CATALOG: "occc:install:get-channel-catalog",
+  INSTALL_CHANNEL_VALIDATE: "occc:install:channel-validate",
 } as const;
 
 // ─── API Bridge Type ────────────────────────────────────────────────────────
@@ -298,6 +376,11 @@ export interface OcccBridge {
   installGitHubCheckScope(pat: string): Promise<{ hasScope: boolean }>;
   installGitHubCreateRepo(pat: string): Promise<{ url: string }>;
   installRun(config: Record<string, unknown>): Promise<void>;
+
+  // Installer — Skill & Channel Catalog (wizard steps 6–7)
+  installGetSkillCatalog(): Promise<SkillCatalogEntry[]>;
+  installGetChannelCatalog(): Promise<ChannelCatalogEntry[]>;
+  installChannelValidate(channelId: string, config: Record<string, string>): Promise<{ valid: boolean; error?: string }>;
 
   // Events
   on(channel: string, callback: (...args: unknown[]) => void): void;

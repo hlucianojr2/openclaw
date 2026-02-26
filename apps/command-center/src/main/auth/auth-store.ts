@@ -12,8 +12,8 @@
 
 import { app, safeStorage } from "electron";
 import path from "node:path";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { createHash, createHmac, randomBytes, createCipheriv, createDecipheriv, timingSafeEqual } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHmac, randomBytes, createCipheriv, createDecipheriv, timingSafeEqual } from "node:crypto";
 import type { AuditLogEntry, UserRole, UserProfile } from "../../shared/ipc-types.js";
 
 const DB_VERSION = 1;
@@ -27,7 +27,7 @@ interface UserRow {
   totp_secret_enc: string; // AES-256-GCM encrypted TOTP secret (base64)
   totp_enabled: number;    // 0 | 1 (SQLite boolean)
   biometric_enrolled: number;
-  recovery_codes_enc: string; // AES-256-GCM encrypted JSON array of SHA-256 hashes
+  recovery_codes_enc: string; // AES-256-GCM encrypted JSON array of HMAC-SHA256 hashes (keyed with encKey)
   created_at: string;      // ISO timestamp
   last_login_at: string | null;
 }
@@ -67,14 +67,24 @@ export class AuthStore {
         this.encKey = rawKey;
       }
     } else {
-      // Fallback: derive from machine metadata. TOTP secrets and recovery codes
-      // have reduced protection if auth.db is exfiltrated without the OS keychain.
-      console.warn(
-        "[AuthStore] safeStorage unavailable — falling back to derived encryption key.",
-      );
-      const { scryptSync } = await import("node:crypto");
-      const machineId = await this.getMachineId();
-      this.encKey = scryptSync(machineId, "occc-auth-v1", 32);
+      // Fallback: generate and persist a random key file (mode 0o600).
+      // This is stronger than a machine-derived key since it is not predictable
+      // from observable system properties. WARNING: deleting auth-fallback.key
+      // makes auth.db permanently unreadable.
+      const fallbackKeyPath = path.join(app.getPath("userData"), "auth-fallback.key");
+      if (existsSync(fallbackKeyPath)) {
+        this.encKey = readFileSync(fallbackKeyPath);
+      } else {
+        const rawKey = randomBytes(32);
+        // Ensure the directory exists (defensive — Electron creates userData at startup,
+        // but test/CI environments may not have it pre-created).
+        mkdirSync(path.dirname(fallbackKeyPath), { recursive: true });
+        writeFileSync(fallbackKeyPath, rawKey, { mode: 0o600 });
+        this.encKey = rawKey;
+        console.warn(
+          "[AuthStore] safeStorage unavailable — generated auth-fallback.key. Keep this file safe.",
+        );
+      }
     }
 
     // Open database
@@ -310,9 +320,17 @@ export class AuthStore {
 
   // ─── Recovery Codes ───────────────────────────────────────────────────
 
-  /** Hash a recovery code for storage (SHA-256 hex). */
+  /**
+   * HMAC-SHA256 a recovery code bound to the DB encryption key.
+   * Using the encKey as HMAC key means hashes in auth.db are useless to attackers
+   * who do not also have the OS keychain key (safeStorage path) or the fallback
+   * key file — preventing offline precomputation attacks.
+   */
   private hashRecoveryCode(code: string): string {
-    return createHash("sha256").update(code.toUpperCase().replace(/-/g, "")).digest("hex");
+    if (!this.encKey) { throw new Error("Encryption key not initialized"); }
+    return createHmac("sha256", this.encKey)
+      .update(code.toUpperCase().replace(/-/g, ""))
+      .digest("hex");
   }
 
   /** Store recovery codes (encrypted). Hashes each code for one-time-use verification. */
@@ -479,19 +497,6 @@ export class AuthStore {
     const decipher = createDecipheriv("aes-256-gcm", this.encKey, iv);
     decipher.setAuthTag(tag);
     return decipher.update(ciphertext).toString("utf8") + decipher.final("utf8");
-  }
-
-  // ─── Machine ID ───────────────────────────────────────────────────────
-
-  private async getMachineId(): Promise<string> {
-    // Use a stable, machine-specific identifier
-    const os = await import("node:os");
-    const hostname = os.hostname();
-    const username = os.userInfo().username;
-    const homedir = os.homedir();
-    return createHmac("sha256", "occc-machine-key")
-      .update(`${hostname}:${username}:${homedir}`)
-      .digest("hex");
   }
 
   private rowToProfile(row: UserRow): UserProfile {

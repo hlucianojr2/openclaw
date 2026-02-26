@@ -132,6 +132,14 @@ const bridge: OcccBridge = {
   installRun: (config) =>
     ipcRenderer.invoke(IPC_CHANNELS.INSTALL_RUN, config),
 
+  // ─── Installer — Skill & Channel Catalog (wizard steps 6–7) ───────────
+  installGetSkillCatalog: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSTALL_GET_SKILL_CATALOG),
+  installGetChannelCatalog: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSTALL_GET_CHANNEL_CATALOG),
+  installChannelValidate: (channelId, config) =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSTALL_CHANNEL_VALIDATE, channelId, config),
+
   // ─── Events (main → renderer) ─────────────────────────────────────────
   on: (channel, callback) => {
     // Only allow our namespaced channels
