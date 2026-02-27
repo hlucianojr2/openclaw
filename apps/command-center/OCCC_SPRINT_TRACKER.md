@@ -3,7 +3,7 @@
 > Tracks the implementation progress of the OpenClaw Command Center (OCCC).
 > Updated by the `occc-sprint-planner` agent after each phase transition.
 
-**Last Updated**: 2026-02-27 (Sprint 3 → human-review)
+**Last Updated**: 2026-02-27 (Sprint 3 → done)
 
 ---
 
@@ -13,7 +13,7 @@
 |--------|-------|-------------|----------|--------|----|---------|
 | 1 | 1: Foundation | Electron scaffold, Docker abstraction, IPC bridge | occc-electron-dev, occc-docker-dev | human-review | — | 2026-02-24 |
 | 2 | 2: Auth & RBAC | Auth engine, biometric, 2FA, RBAC roles | occc-security-dev | human-review | — | 2026-02-24 |
-| 3 | 3: Installation Wizard | System validation, wizard steps, voice guide, GitHub backup | occc-electron-dev, occc-react-dev | human-review | — | 2026-02-27 |
+| 3 | 3: Installation Wizard | System validation, wizard steps, voice guide, GitHub backup | occc-electron-dev, occc-react-dev | done | — | 2026-02-27 |
 | 4 | 4: Configuration Center | Zod-driven form generation, config panels, Monaco editor | occc-react-dev | human-review | — | 2026-02-26 |
 | 5 | 5: Skill Governance | Skill scanner, AI specialist, approval pipeline, allowlist | occc-security-dev, occc-react-dev | not-started | — | 2026-02-23 |
 | 6 | 6: Runtime Monitoring | Dashboard, sessions, agent activity, resource usage, logs | occc-react-dev, occc-electron-dev | done | — | 2026-02-24 |
