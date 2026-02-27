@@ -59,8 +59,8 @@ const STEPS: { id: WizardStep; label: string }[] = [
 const defaultConfig: WizardConfig = {
   llmProvider: "anthropic",
   llmApiKey: "",
-  // Pre-select the three recommended skills
-  selectedSkills: ["memory-core", "brave-search", "llm-task"],
+  // Pre-select recommended skills from SKILL_CATALOG (auto-approved, recommended: true)
+  selectedSkills: ["healthcheck", "session-logs", "model-usage", "summarize"],
   enabledChannels: [],
   githubPat: "",
   githubRepo: "",

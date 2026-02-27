@@ -53,6 +53,10 @@ export class ContainerManager {
      * channel credentials on first boot.
      */
     channelKeyHex?: string;
+    /** LLM provider identifier (e.g. "anthropic", "openai"). */
+    llmProvider?: string;
+    /** LLM API key — injected as OPENCLAW_LLM_API_KEY so the gateway can call the AI provider. */
+    llmApiKey?: string;
   }): Promise<void> {
     const image = config.image ?? OPENCLAW_IMAGE;
     const gatewayPort = config.gatewayPort ?? DEFAULT_GATEWAY_PORT;
@@ -74,6 +78,8 @@ export class ContainerManager {
         `OPENCLAW_GATEWAY_TOKEN=${config.gatewayToken}`,
         "NODE_ENV=production",
         ...(config.channelKeyHex ? [`OPENCLAW_CHANNEL_KEY=${config.channelKeyHex}`] : []),
+        ...(config.llmProvider ? [`OPENCLAW_LLM_PROVIDER=${config.llmProvider}`] : []),
+        ...(config.llmApiKey ? [`OPENCLAW_LLM_API_KEY=${config.llmApiKey}`] : []),
       ],
       ports: {
         [String(gatewayPort)]: gatewayPort,

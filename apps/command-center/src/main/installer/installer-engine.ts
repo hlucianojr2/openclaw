@@ -130,6 +130,9 @@ export class InstallerEngine {
         bridgePort: config.bridgePort ?? DEFAULT_BRIDGE_PORT,
         // Pass the channel key so the container can decrypt openclaw-channels.enc on first boot.
         channelKeyHex: channelKey.toString("hex"),
+        // Pass LLM credentials so the gateway can call the AI provider after first boot.
+        llmProvider: config.llmProvider,
+        llmApiKey: config.llmApiKey || undefined,
       });
 
       // Stage 6: Install skills (write skill list to config volume before start)
