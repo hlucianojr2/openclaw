@@ -22,6 +22,8 @@ import { AuthEngine } from "./auth/auth-engine.js";
 import { registerAuthIpcHandlers } from "./auth/auth-ipc.js";
 import { registerInstallerIpcHandlers } from "./installer/installer-ipc.js";
 import { registerConfigIpcHandlers } from "./config/config-ipc.js";
+import { SkillGovernance } from "./skills/skill-governance.js";
+import { registerSkillsIpcHandlers } from "./skills/skills-ipc.js";
 import { APP_NAME } from "../shared/constants.js";
 
 // ─── Single Instance Lock ───────────────────────────────────────────────────
@@ -83,11 +85,17 @@ void app.whenReady().then(async () => {
   dockerClient = new DockerEngineClient();
   containerManager = new ContainerManager(dockerClient);
 
+  // Initialize skill governance
+  const skillGovernance = new SkillGovernance({
+    llmApiKey: process.env.OPENCLAW_LLM_API_KEY,
+  });
+
   // Register IPC handlers (main process ↔ renderer bridge)
   registerIpcHandlers({ dockerClient, containerManager, sessionManager });
   registerAuthIpcHandlers(authEngine, sessionManager);
   registerInstallerIpcHandlers(dockerClient, containerManager, authEngine);
   registerConfigIpcHandlers(sessionManager);
+  registerSkillsIpcHandlers(sessionManager, skillGovernance);
 
   // Create main window
   windowManager = new WindowManager();
