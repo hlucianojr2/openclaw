@@ -1,0 +1,50 @@
+import type { OpenClawConfig } from "../config/config.js";
+import type { ChannelGroupPolicy } from "../config/group-policy.js";
+import type { TelegramAccountConfig, TelegramGroupConfig, TelegramTopicConfig } from "../config/types.js";
+import { type NormalizedAllowFrom } from "./bot-access.js";
+export type TelegramGroupBaseBlockReason = "group-disabled" | "topic-disabled" | "group-override-unauthorized";
+export type TelegramGroupBaseAccessResult = {
+    allowed: true;
+} | {
+    allowed: false;
+    reason: TelegramGroupBaseBlockReason;
+};
+export declare const evaluateTelegramGroupBaseAccess: (params: {
+    isGroup: boolean;
+    groupConfig?: TelegramGroupConfig | undefined;
+    topicConfig?: TelegramTopicConfig | undefined;
+    hasGroupAllowOverride: boolean;
+    effectiveGroupAllow: NormalizedAllowFrom;
+    senderId?: string | undefined;
+    senderUsername?: string | undefined;
+    enforceAllowOverride: boolean;
+    requireSenderForAllowOverride: boolean;
+}) => TelegramGroupBaseAccessResult;
+export type TelegramGroupPolicyBlockReason = "group-policy-disabled" | "group-policy-allowlist-no-sender" | "group-policy-allowlist-empty" | "group-policy-allowlist-unauthorized" | "group-chat-not-allowed";
+export type TelegramGroupPolicyAccessResult = {
+    allowed: true;
+    groupPolicy: "open" | "disabled" | "allowlist";
+} | {
+    allowed: false;
+    reason: TelegramGroupPolicyBlockReason;
+    groupPolicy: "open" | "disabled" | "allowlist";
+};
+export declare const evaluateTelegramGroupPolicyAccess: (params: {
+    isGroup: boolean;
+    chatId: string | number;
+    cfg: OpenClawConfig;
+    telegramCfg: TelegramAccountConfig;
+    topicConfig?: TelegramTopicConfig | undefined;
+    groupConfig?: TelegramGroupConfig | undefined;
+    effectiveGroupAllow: NormalizedAllowFrom;
+    senderId?: string | undefined;
+    senderUsername?: string | undefined;
+    resolveGroupPolicy: (chatId: string | number) => ChannelGroupPolicy;
+    enforcePolicy: boolean;
+    useTopicAndGroupOverrides: boolean;
+    enforceAllowlistAuthorization: boolean;
+    allowEmptyAllowlistEntries: boolean;
+    requireSenderForAllowlistAuthorization: boolean;
+    checkChatAllowlist: boolean;
+}) => TelegramGroupPolicyAccessResult;
+//# sourceMappingURL=group-access.d.ts.map

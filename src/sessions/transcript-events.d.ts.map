@@ -1,0 +1,1 @@
+{"version":3,"file":"transcript-events.d.ts","sourceRoot":"","sources":["transcript-events.ts"],"names":[],"mappings":"AAAA,KAAK,uBAAuB,GAAG;IAC7B,WAAW,EAAE,MAAM,CAAC;CACrB,CAAC;AAEF,KAAK,yBAAyB,GAAG,CAAC,MAAM,EAAE,uBAAuB,KAAK,IAAI,CAAC;AAI3E,wBAAgB,yBAAyB,CAAC,QAAQ,EAAE,yBAAyB,GAAG,MAAM,IAAI,CAKzF;AAED,wBAAgB,2BAA2B,CAAC,WAAW,EAAE,MAAM,GAAG,IAAI,CASrE"}

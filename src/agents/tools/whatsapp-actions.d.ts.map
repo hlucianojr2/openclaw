@@ -1,0 +1,1 @@
+{"version":3,"file":"whatsapp-actions.d.ts","sourceRoot":"","sources":["whatsapp-actions.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,6BAA6B,CAAC;AACnE,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,wBAAwB,CAAC;AAI7D,wBAAsB,oBAAoB,CACxC,MAAM,EAAE,MAAM,CAAC,MAAM,EAAE,OAAO,CAAC,EAC/B,GAAG,EAAE,cAAc,GAClB,OAAO,CAAC,eAAe,CAAC,OAAO,CAAC,CAAC,CA+BnC"}

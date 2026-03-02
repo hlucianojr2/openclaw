@@ -1,0 +1,2 @@
+export declare function formatCliCommand(command: string, env?: Record<string, string | undefined>): string;
+//# sourceMappingURL=command-format.d.ts.map

@@ -1,0 +1,1 @@
+{"version":3,"file":"legacy-migrate.d.ts","sourceRoot":"","sources":["legacy-migrate.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,YAAY,CAAC;AAIjD,wBAAgB,mBAAmB,CAAC,GAAG,EAAE,OAAO,GAAG;IACjD,MAAM,EAAE,cAAc,GAAG,IAAI,CAAC;IAC9B,OAAO,EAAE,MAAM,EAAE,CAAC;CACnB,CAWA"}

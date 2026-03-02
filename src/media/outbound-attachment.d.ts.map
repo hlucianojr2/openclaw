@@ -1,0 +1,1 @@
+{"version":3,"file":"outbound-attachment.d.ts","sourceRoot":"","sources":["outbound-attachment.ts"],"names":[],"mappings":"AAGA,wBAAsB,gCAAgC,CACpD,QAAQ,EAAE,MAAM,EAChB,QAAQ,EAAE,MAAM,EAChB,OAAO,CAAC,EAAE;IAAE,UAAU,CAAC,EAAE,SAAS,MAAM,EAAE,CAAA;CAAE,GAC3C,OAAO,CAAC;IAAE,IAAI,EAAE,MAAM,CAAC;IAAC,WAAW,CAAC,EAAE,MAAM,CAAA;CAAE,CAAC,CAYjD"}

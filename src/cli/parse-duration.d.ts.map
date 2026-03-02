@@ -1,0 +1,1 @@
+{"version":3,"file":"parse-duration.d.ts","sourceRoot":"","sources":["parse-duration.ts"],"names":[],"mappings":"AAAA,MAAM,MAAM,sBAAsB,GAAG;IACnC,WAAW,CAAC,EAAE,IAAI,GAAG,GAAG,GAAG,GAAG,GAAG,GAAG,GAAG,GAAG,CAAC;CAC5C,CAAC;AAEF,wBAAgB,eAAe,CAAC,GAAG,EAAE,MAAM,EAAE,IAAI,CAAC,EAAE,sBAAsB,GAAG,MAAM,CAkClF"}

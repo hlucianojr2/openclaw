@@ -1,0 +1,2 @@
+export declare const LEGACY_CONFIG_MIGRATIONS: import("./legacy.shared.js").LegacyConfigMigration[];
+//# sourceMappingURL=legacy.migrations.d.ts.map

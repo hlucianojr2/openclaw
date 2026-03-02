@@ -1,0 +1,13 @@
+import type { BrowserServerState } from "./server-context.types.js";
+import { type ResolvedBrowserProfile } from "./config.js";
+export declare function refreshResolvedBrowserConfigFromDisk(params: {
+    current: BrowserServerState;
+    refreshConfigFromDisk: boolean;
+    mode: "cached" | "fresh";
+}): void;
+export declare function resolveBrowserProfileWithHotReload(params: {
+    current: BrowserServerState;
+    refreshConfigFromDisk: boolean;
+    name: string;
+}): ResolvedBrowserProfile | null;
+//# sourceMappingURL=resolved-config-refresh.d.ts.map

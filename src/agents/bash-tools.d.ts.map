@@ -1,0 +1,1 @@
+{"version":3,"file":"bash-tools.d.ts","sourceRoot":"","sources":["bash-tools.ts"],"names":[],"mappings":"AAAA,YAAY,EACV,iBAAiB,EACjB,oBAAoB,EACpB,gBAAgB,EAChB,eAAe,GAChB,MAAM,sBAAsB,CAAC;AAC9B,OAAO,EAAE,cAAc,EAAE,QAAQ,EAAE,MAAM,sBAAsB,CAAC;AAChE,YAAY,EAAE,mBAAmB,EAAE,MAAM,yBAAyB,CAAC;AACnE,OAAO,EAAE,iBAAiB,EAAE,WAAW,EAAE,MAAM,yBAAyB,CAAC"}

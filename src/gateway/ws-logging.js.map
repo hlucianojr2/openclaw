@@ -1,0 +1,1 @@
+{"version":3,"file":"ws-logging.js","sourceRoot":"","sources":["ws-logging.ts"],"names":[],"mappings":"AAEA,IAAI,iBAAiB,GAAsB,MAAM,CAAC;AAElD,MAAM,UAAU,oBAAoB,CAAC,KAAwB,EAAQ;IACnE,iBAAiB,GAAG,KAAK,CAAC;AAAA,CAC3B;AAED,MAAM,UAAU,oBAAoB,GAAsB;IACxD,OAAO,iBAAiB,CAAC;AAAA,CAC1B;AAED,MAAM,CAAC,MAAM,kBAAkB,GAAG,EAAE,CAAC"}

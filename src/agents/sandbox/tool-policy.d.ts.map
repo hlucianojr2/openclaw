@@ -1,0 +1,1 @@
+{"version":3,"file":"tool-policy.d.ts","sourceRoot":"","sources":["tool-policy.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,wBAAwB,CAAC;AAC7D,OAAO,KAAK,EACV,iBAAiB,EACjB,yBAAyB,EAE1B,MAAM,YAAY,CAAC;AAUpB,wBAAgB,aAAa,CAAC,MAAM,EAAE,iBAAiB,EAAE,IAAI,EAAE,MAAM,WAiBpE;AAED,wBAAgB,gCAAgC,CAC9C,GAAG,CAAC,EAAE,cAAc,EACpB,OAAO,CAAC,EAAE,MAAM,GACf,yBAAyB,CAuE3B"}

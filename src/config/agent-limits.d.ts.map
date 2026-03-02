@@ -1,0 +1,1 @@
+{"version":3,"file":"agent-limits.d.ts","sourceRoot":"","sources":["agent-limits.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,YAAY,CAAC;AAEjD,eAAO,MAAM,4BAA4B,IAAI,CAAC;AAC9C,eAAO,MAAM,+BAA+B,IAAI,CAAC;AAEjD,wBAAgB,yBAAyB,CAAC,GAAG,CAAC,EAAE,cAAc,GAAG,MAAM,CAMtE;AAED,wBAAgB,4BAA4B,CAAC,GAAG,CAAC,EAAE,cAAc,GAAG,MAAM,CAMzE"}

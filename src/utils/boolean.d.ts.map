@@ -1,0 +1,1 @@
+{"version":3,"file":"boolean.d.ts","sourceRoot":"","sources":["boolean.ts"],"names":[],"mappings":"AAAA,MAAM,MAAM,mBAAmB,GAAG;IAChC,MAAM,CAAC,EAAE,MAAM,EAAE,CAAC;IAClB,KAAK,CAAC,EAAE,MAAM,EAAE,CAAC;CAClB,CAAC;AAOF,wBAAgB,iBAAiB,CAC/B,KAAK,EAAE,OAAO,EACd,OAAO,GAAE,mBAAwB,GAChC,OAAO,GAAG,SAAS,CAsBrB"}

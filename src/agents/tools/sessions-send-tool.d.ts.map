@@ -1,0 +1,1 @@
+{"version":3,"file":"sessions-send-tool.d.ts","sourceRoot":"","sources":["sessions-send-tool.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,YAAY,EAAE,MAAM,aAAa,CAAC;AAKhD,OAAO,EACL,KAAK,qBAAqB,EAE3B,MAAM,gCAAgC,CAAC;AAwBxC,wBAAgB,sBAAsB,CAAC,IAAI,CAAC,EAAE;IAC5C,eAAe,CAAC,EAAE,MAAM,CAAC;IACzB,YAAY,CAAC,EAAE,qBAAqB,CAAC;IACrC,SAAS,CAAC,EAAE,OAAO,CAAC;CACrB,GAAG,YAAY,CAoUf"}
