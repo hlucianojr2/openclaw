@@ -84,6 +84,22 @@ const bridge: OcccBridge = {
   setConfig: (token, section, values) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SET, token, section, values),
 
+  // ─── Config (Phase 4 — typed read/write/schema/diff/reload) ────────
+  readConfig: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_READ, token),
+  writeConfig: (token, config, expectedChecksum) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_WRITE, token, config, expectedChecksum),
+  validateConfig: (token, config) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_VALIDATE, token, config),
+  getConfigPath: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_PATH, token),
+  getConfigSchema: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SCHEMA, token),
+  reloadConfig: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_RELOAD, token),
+  getConfigDiff: (token, pending) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_DIFF, token, pending),
+
   // ─── Skills ───────────────────────────────────────────────────────────
   listSkills: (token) =>
     ipcRenderer.invoke(IPC_CHANNELS.SKILLS_LIST, token),

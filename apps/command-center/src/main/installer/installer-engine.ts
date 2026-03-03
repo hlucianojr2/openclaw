@@ -130,6 +130,10 @@ export class InstallerEngine {
         bridgePort: config.bridgePort ?? DEFAULT_BRIDGE_PORT,
         // Pass the channel key so the container can decrypt openclaw-channels.enc on first boot.
         channelKeyHex: channelKey.toString("hex"),
+        // Inject LLM provider + key as env vars so the gateway can reach the AI
+        // provider immediately on first boot without needing to parse config files.
+        llmProvider: config.llmProvider,
+        llmApiKey: config.llmApiKey,
       });
 
       // Stage 6: Install skills (write skill list to config volume before start)
@@ -145,6 +149,12 @@ export class InstallerEngine {
         onProgress({ stage: "configuring-channels", percent: 78, message: `Applying configuration for ${channels.length} channel(s)…` });
         await this.writeChannelConfig(configDir, channels, channelKey);
       }
+
+      // Stage 7c: Write gateway config (LLM provider + GitHub backup credentials).
+      // Encrypted with channelKey so credentials are never stored in plaintext.
+      // Must happen before startEnvironment so the gateway can read the config on first boot.
+      onProgress({ stage: "starting", percent: 83, message: "Writing gateway configuration…" });
+      await this.writeGatewayConfig(configDir, config, channelKey);
 
       // Stage 8: Start
       onProgress({ stage: "starting", percent: 85, message: "Starting OpenClaw environment…" });
@@ -178,6 +188,49 @@ export class InstallerEngine {
       stream.on("error", reject);
       stream.resume();
     });
+  }
+
+  /**
+   * Write LLM provider credentials and optional GitHub backup config to
+   * openclaw-gateway.enc in the config dir — AES-256-GCM encrypted using
+   * channelKey (the same key used for openclaw-channels.enc).
+   *
+   * Layout: [IV 12 bytes][AuthTag 16 bytes][Ciphertext]
+   *
+   * Container env var OPENCLAW_CHANNEL_KEY (injected by createEnvironment)
+   * gives the gateway access to the key on first boot so it can decrypt both
+   * openclaw-channels.enc and openclaw-gateway.enc.
+   *
+   * Container env vars (LLM_PROVIDER / LLM_API_KEY) are also injected as a
+   * belt-and-suspenders fallback for runtimes that read process.env directly.
+   * NOTE: env vars remain visible via `docker inspect` — the encrypted file is
+   * the canonical, safer store; env vars are a convenience fallback only.
+   */
+  private async writeGatewayConfig(
+    configDir: string,
+    config: InstallerConfig,
+    channelKey: Buffer,
+  ): Promise<void> {
+    const gatewayConfig: Record<string, string> = {
+      llmProvider: config.llmProvider,
+      llmApiKey: config.llmApiKey,
+    };
+    // Include GitHub backup credentials only when provided
+    if (config.githubPat) {
+      gatewayConfig.githubPat = config.githubPat;
+    }
+    if (config.githubRepo) {
+      gatewayConfig.githubRepo = config.githubRepo;
+    }
+    const plaintext = JSON.stringify(gatewayConfig);
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", channelKey, iv);
+    const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    // Layout: [IV 12 bytes][AuthTag 16 bytes][Ciphertext]
+    const payload = Buffer.concat([iv, authTag, encrypted]);
+    const filePath = path.join(configDir, "openclaw-gateway.enc");
+    await writeFile(filePath, payload, { mode: 0o600 });
   }
 
   /**
