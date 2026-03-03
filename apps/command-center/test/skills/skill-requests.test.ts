@@ -9,7 +9,8 @@ vi.mock("electron", () => ({
 }));
 
 const mockWriteFile = vi.fn().mockResolvedValue(undefined);
-vi.mock("node:fs/promises", () => ({ writeFile: mockWriteFile }));
+const mockChmod = vi.fn().mockResolvedValue(undefined);
+vi.mock("node:fs/promises", () => ({ writeFile: mockWriteFile, chmod: mockChmod }));
 
 const mockExistsSync = vi.fn(() => false);
 const mockReadFileSync = vi.fn(() => "{}");

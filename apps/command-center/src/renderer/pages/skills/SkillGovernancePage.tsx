@@ -164,8 +164,9 @@ export function SkillGovernancePage() {
     }
   }, [token, refresh, showToast]);
 
-  // Admin+ can approve/reject (operator and viewer cannot)
-  const canAction = session?.role === "super-admin" || session?.role === "admin" || session?.role === "operator";
+  // Only super-admin and admin can approve/reject skills per the RBAC model.
+  // Operator lacks skills:approve permission and must not see action controls.
+  const canAction = session?.role === "super-admin" || session?.role === "admin";
 
   if (loading) {
     return (

@@ -9,7 +9,7 @@ vi.mock("electron", () => ({
 }));
 
 const mockWriteFile = vi.fn().mockResolvedValue(undefined);
-vi.mock("node:fs/promises", () => ({ writeFile: mockWriteFile }));
+vi.mock("node:fs/promises", () => ({ writeFile: mockWriteFile, chmod: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(() => false),
@@ -32,7 +32,7 @@ describe("SkillGovernance — requestInstall", () => {
       existsSync: vi.fn(() => false),
       readFileSync: vi.fn(() => "{}"),
     }));
-    vi.mock("node:fs/promises", () => ({ writeFile: vi.fn().mockResolvedValue(undefined) }));
+    vi.mock("node:fs/promises", () => ({ writeFile: vi.fn().mockResolvedValue(undefined), chmod: vi.fn().mockResolvedValue(undefined) }));
     vi.mock("electron", () => ({ app: { getPath: vi.fn(() => "/tmp/occc-test") } }));
 
     const mod = await import("../../src/main/skills/skill-governance.js");
@@ -90,7 +90,7 @@ describe("SkillGovernance — approve and reject", () => {
       existsSync: vi.fn(() => false),
       readFileSync: vi.fn(() => "{}"),
     }));
-    vi.mock("node:fs/promises", () => ({ writeFile: vi.fn().mockResolvedValue(undefined) }));
+    vi.mock("node:fs/promises", () => ({ writeFile: vi.fn().mockResolvedValue(undefined), chmod: vi.fn().mockResolvedValue(undefined) }));
     vi.mock("electron", () => ({ app: { getPath: vi.fn(() => "/tmp/occc-test") } }));
 
     const mod = await import("../../src/main/skills/skill-governance.js");
@@ -160,7 +160,7 @@ describe("SkillGovernance — allowlist management", () => {
       existsSync: vi.fn(() => false),
       readFileSync: vi.fn(() => "{}"),
     }));
-    vi.mock("node:fs/promises", () => ({ writeFile: vi.fn().mockResolvedValue(undefined) }));
+    vi.mock("node:fs/promises", () => ({ writeFile: vi.fn().mockResolvedValue(undefined), chmod: vi.fn().mockResolvedValue(undefined) }));
     vi.mock("electron", () => ({ app: { getPath: vi.fn(() => "/tmp/occc-test") } }));
 
     const mod = await import("../../src/main/skills/skill-governance.js");

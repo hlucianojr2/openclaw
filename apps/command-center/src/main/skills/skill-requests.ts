@@ -8,7 +8,7 @@
 import { app } from "electron";
 import path from "node:path";
 import { readFileSync, existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { writeFile, chmod } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type {
   SkillApprovalRequest,
@@ -83,5 +83,8 @@ export class SkillRequestStore {
   private async persist(): Promise<void> {
     const data: RequestsFile = { requests: [...this.requests.values()] };
     await writeFile(this.filePath, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
+    // Enforce mode explicitly after write — the mode option may not apply to
+    // pre-existing files on all platforms (POSIX open(2) does not chmod existing files).
+    await chmod(this.filePath, 0o600);
   }
 }

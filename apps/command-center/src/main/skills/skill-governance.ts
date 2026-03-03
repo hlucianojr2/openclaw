@@ -77,6 +77,13 @@ export class SkillGovernance {
     }
 
     if (entry.approvalLevel === "user-ack") {
+      // Security note: user-ack requests are queued as pending and funneled through
+      // the same elevation-required approve path as admin-review requests.
+      // This is intentionally more restrictive than the spec (which only requires user
+      // acknowledgement) — it ensures that even "low-friction" approvals require an
+      // elevated session from an admin-or-above role. The extra friction is acceptable
+      // security hardening; no regression from the spec perspective, since admin-or-above
+      // users can still approve without calling out to a separate ack flow.
       const request = this.requests.create({
         skillId: entry.id,
         skillName: entry.name,

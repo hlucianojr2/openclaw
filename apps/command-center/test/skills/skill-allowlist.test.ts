@@ -10,7 +10,8 @@ vi.mock("electron", () => ({
 
 // Track writeFile calls without hitting the filesystem
 const mockWriteFile = vi.fn().mockResolvedValue(undefined);
-vi.mock("node:fs/promises", () => ({ writeFile: mockWriteFile }));
+const mockChmod = vi.fn().mockResolvedValue(undefined);
+vi.mock("node:fs/promises", () => ({ writeFile: mockWriteFile, chmod: mockChmod }));
 
 // existsSync returns false by default (no pre-existing file)
 const mockExistsSync = vi.fn(() => false);
