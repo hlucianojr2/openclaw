@@ -130,8 +130,8 @@ export function registerInstallerIpcHandlers(
     if (typeof config.llmProvider !== "string" || !config.llmProvider) {
       throw new Error("llmProvider must be a non-empty string");
     }
-    if (typeof config.llmApiKey !== "string") {
-      throw new Error("llmApiKey must be a string");
+    if (typeof config.llmApiKey !== "string" || !config.llmApiKey) {
+      throw new Error("llmApiKey must be a non-empty string");
     }
 
     // Guard: validate optional port overrides before they reach the Docker layer.

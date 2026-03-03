@@ -131,7 +131,14 @@ export function registerConfigIpcHandlers(sessions: SessionManager): void {
       if (!schema) {
         return { valid: true, errors: [], note: "Schema validation unavailable in this environment" };
       }
-      const result = (schema.OpenClawSchema as { safeParse(data: unknown): { success: boolean; error?: { issues: { path: (string | number)[]; message: string }[] } } }).safeParse(config);
+      // Guard: verify the loaded module actually exports a Zod schema with safeParse
+      // before calling it — a missing/mismatched schema export would otherwise throw.
+      const validator = schema.OpenClawSchema;
+      if (typeof validator !== "object" || validator === null || typeof (validator as Record<string, unknown>)["safeParse"] !== "function") {
+        return { valid: true, errors: [], note: "Schema validation unavailable in this environment" };
+      }
+      type SafeParseResult = { success: boolean; error?: { issues: { path: (string | number)[]; message: string }[] } };
+      const result = (validator as { safeParse(data: unknown): SafeParseResult }).safeParse(config);
       if (result.success) {
         return { valid: true, errors: [] };
       }
