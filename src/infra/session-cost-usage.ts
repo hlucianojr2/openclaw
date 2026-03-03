@@ -722,7 +722,7 @@ export async function loadSessionCostSummary(params: {
       firstActivity !== undefined && lastActivity !== undefined
         ? Math.max(0, lastActivity - firstActivity)
         : undefined,
-    activityDates: Array.from(activityDatesSet).toSorted(),
+    activityDates: Array.from(activityDatesSet).toSorted((a, b) => a.localeCompare(b)),
     dailyBreakdown,
     dailyMessageCounts,
     dailyLatency: dailyLatency.length ? dailyLatency : undefined,

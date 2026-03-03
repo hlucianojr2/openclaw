@@ -24,6 +24,11 @@ const lintExts = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 const formatExts = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".md", ".mdx"]);
 
 const shouldSelect = (filePath) => {
+  const base = path.basename(filePath);
+  // Exclude TypeScript declaration files — they are compiler output, not source
+  if (base.endsWith(".d.ts") || base.endsWith(".d.mts") || base.endsWith(".d.cts")) {
+    return false;
+  }
   const ext = path.extname(filePath).toLowerCase();
   if (mode === "lint") {
     return lintExts.has(ext);

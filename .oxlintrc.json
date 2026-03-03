@@ -30,8 +30,18 @@
     "patches/",
     "pnpm-lock.yaml/",
     "skills/",
-    "src/canvas-host/a2ui/a2ui.bundle.js",
+    "src/**/*.js",
+    "src/**/*.js.map",
     "Swabble/",
-    "vendor/"
+    "vendor/",
+    "**/*.d.ts"
+  ],
+  "overrides": [
+    {
+      "files": ["**/*.js"],
+      "rules": {
+        "unicorn/no-empty-file": "off"
+      }
+    }
   ]
 }
