@@ -3,7 +3,7 @@
 > Tracks the implementation progress of the OpenClaw Command Center (OCCC).
 > Updated by the `occc-sprint-planner` agent after each phase transition.
 
-**Last Updated**: 2026-03-03 (Sprint 1 → done PR #2; Sprint 2 → done; Sprint 4 → done PR #4)
+**Last Updated**: 2026-03-03 (Sprint 5 → human-review PR #6)
 
 ---
 
@@ -15,7 +15,7 @@
 | 2 | 2: Auth & RBAC | Auth engine, biometric, 2FA, RBAC roles | occc-security-dev | done | — | 2026-03-03 |
 | 3 | 3: Installation Wizard | System validation, wizard steps, voice guide, GitHub backup | occc-electron-dev, occc-react-dev | done | — | 2026-02-27 |
 | 4 | 4: Configuration Center | Zod-driven form generation, config panels, Monaco editor | occc-react-dev | done | PR #4 | 2026-03-03 |
-| 5 | 5: Skill Governance | Skill scanner, AI specialist, approval pipeline, allowlist | occc-security-dev, occc-react-dev | in-progress | — | 2026-02-27 |
+| 5 | 5: Skill Governance | Skill scanner, AI specialist, approval pipeline, allowlist | occc-security-dev, occc-react-dev | human-review | PR #6 | 2026-03-03 |
 | 6 | 6: Runtime Monitoring | Dashboard, sessions, agent activity, resource usage, logs | occc-react-dev, occc-electron-dev | done | — | 2026-02-24 |
 | 7 | 7: MCP Bridge | MCP Bridge Server, policy engine, approval flow | occc-electron-dev | not-started | — | 2026-02-23 |
 | 8 | 8: OpenClaw Lockdown | CLI gate, control plane auth, config write protection | occc-lockdown-dev | not-started | — | 2026-02-23 |
