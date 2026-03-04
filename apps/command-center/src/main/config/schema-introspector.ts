@@ -18,14 +18,52 @@
  */
 
 import type { z } from "zod";
-import type {
-  ConfigDiffEntry,
-  SchemaFieldMeta,
-  SchemaSectionMeta,
-} from "../../shared/ipc-types.js";
 
-// Re-export so callers that import from schema-introspector.ts continue to work.
-export type { SchemaFieldMeta, SchemaSectionMeta };
+// ─── Output Types ───────────────────────────────────────────────────────────
+
+export type SchemaFieldType =
+  | "text"
+  | "password"
+  | "number"
+  | "boolean"
+  | "select"
+  | "string-array"
+  | "record"
+  | "json";
+
+export interface SchemaFieldMeta {
+  /** Field key within its parent object. */
+  key: string;
+  /** Full dotted path from root (e.g. ["gateway", "auth", "mode"]). */
+  path: string[];
+  /** Renderer field type. */
+  type: SchemaFieldType;
+  /** Whether the field is required (not optional). */
+  required: boolean;
+  /** Whether the value contains secrets (tokens, passwords, API keys). */
+  sensitive: boolean;
+  /** Human-readable description from `.describe()`. */
+  description?: string;
+  /** Enum/select options (for union-of-literals or z.enum). */
+  options?: string[];
+  /** Numeric minimum constraint. */
+  min?: number;
+  /** Numeric maximum constraint. */
+  max?: number;
+  /** Default value from z.default(). */
+  defaultValue?: unknown;
+  /** Child fields for nested objects. */
+  children?: SchemaFieldMeta[];
+}
+
+export interface SchemaSectionMeta {
+  /** Top-level key in the config object (e.g. "gateway", "agents"). */
+  key: string;
+  /** Human-readable label derived from the key. */
+  label: string;
+  /** Flat + nested field metadata. */
+  fields: SchemaFieldMeta[];
+}
 
 // ─── Internal Zod v4 Def Types ──────────────────────────────────────────────
 
@@ -52,19 +90,6 @@ interface ZodInternals {
 interface ZodSchema {
   _zod: ZodInternals;
   description?: string;
-}
-
-// ─── Zod SafeParse Type ─────────────────────────────────────────────────────
-
-/**
- * Minimal callable shape for Zod v4 `safeParse` — avoids long inline casts.
- * Used by config-ipc.ts to validate config against the OpenClaw schema.
- */
-export interface ZodSafeParseable {
-  safeParse(data: unknown): {
-    success: boolean;
-    error?: { issues: { path: (string | number)[]; message: string }[] };
-  };
 }
 
 // ─── Sensitive Registry Detection ───────────────────────────────────────────
@@ -155,25 +180,39 @@ function walkField(
 
   if (defType === "string") {
     return {
-      key, path: fieldPath,
+      key,
+      path: fieldPath,
       type: sensitive ? "password" : "text",
-      required, sensitive, description, defaultValue,
+      required,
+      sensitive,
+      description,
+      defaultValue,
     };
   }
 
   if (defType === "number" || defType === "bigint") {
     const constraints = extractNumericConstraints(current, zModule);
     return {
-      key, path: fieldPath, type: "number",
-      required, sensitive: false, description, defaultValue,
+      key,
+      path: fieldPath,
+      type: "number",
+      required,
+      sensitive: false,
+      description,
+      defaultValue,
       ...constraints,
     };
   }
 
   if (defType === "boolean") {
     return {
-      key, path: fieldPath, type: "boolean",
-      required, sensitive: false, description, defaultValue,
+      key,
+      path: fieldPath,
+      type: "boolean",
+      required,
+      sensitive: false,
+      description,
+      defaultValue,
     };
   }
 
@@ -182,20 +221,31 @@ function walkField(
   if (defType === "enum" && current._zod.def.entries) {
     const options = Object.values(current._zod.def.entries);
     return {
-      key, path: fieldPath, type: "select",
-      required, sensitive: false, description, options, defaultValue,
+      key,
+      path: fieldPath,
+      type: "select",
+      required,
+      sensitive: false,
+      description,
+      options,
+      defaultValue,
     };
   }
 
-  // ─── Literal → treat as a fixed-value select ───────────────────
+  // ─── Literal → treat as a fixed-value text field ────────────────
 
   if (defType === "literal" && current._zod.def.values) {
     const values = current._zod.def.values as string[];
     if (values.length === 1 && typeof values[0] === "string") {
       return {
-        key, path: fieldPath, type: "select",
-        required, sensitive: false, description,
-        options: values, defaultValue,
+        key,
+        path: fieldPath,
+        type: "select",
+        required,
+        sensitive: false,
+        description,
+        options: values,
+        defaultValue,
       };
     }
   }
@@ -215,8 +265,14 @@ function walkField(
       );
       if (options.length > 0) {
         return {
-          key, path: fieldPath, type: "select",
-          required, sensitive: false, description, options, defaultValue,
+          key,
+          path: fieldPath,
+          type: "select",
+          required,
+          sensitive: false,
+          description,
+          options,
+          defaultValue,
         };
       }
     }
@@ -229,14 +285,24 @@ function walkField(
     const elemType = current._zod.def.element._zod.def.type;
     if (elemType === "string") {
       return {
-        key, path: fieldPath, type: "string-array",
-        required, sensitive: false, description, defaultValue,
+        key,
+        path: fieldPath,
+        type: "string-array",
+        required,
+        sensitive: false,
+        description,
+        defaultValue,
       };
     }
     // Array of non-strings — json fallback
     return {
-      key, path: fieldPath, type: "json",
-      required, sensitive: false, description, defaultValue,
+      key,
+      path: fieldPath,
+      type: "json",
+      required,
+      sensitive: false,
+      description,
+      defaultValue,
     };
   }
 
@@ -244,8 +310,13 @@ function walkField(
 
   if (defType === "record") {
     return {
-      key, path: fieldPath, type: "record",
-      required, sensitive, description, defaultValue,
+      key,
+      path: fieldPath,
+      type: "record",
+      required,
+      sensitive,
+      description,
+      defaultValue,
     };
   }
 
@@ -258,16 +329,27 @@ function walkField(
       children.push(walkField(childKey, childSchema, fieldPath, registry, zModule));
     }
     return {
-      key, path: fieldPath, type: "json",
-      required, sensitive: false, description, children, defaultValue,
+      key,
+      path: fieldPath,
+      type: "json",
+      required,
+      sensitive: false,
+      description,
+      children,
+      defaultValue,
     };
   }
 
   // ─── Fallback → json textarea ──────────────────────────────────
 
   return {
-    key, path: fieldPath, type: "json",
-    required, sensitive: false, description, defaultValue,
+    key,
+    path: fieldPath,
+    type: "json",
+    required,
+    sensitive: false,
+    description,
+    defaultValue,
   };
 }
 
@@ -283,7 +365,12 @@ function keyToLabel(key: string): string {
 
 /**
  * Walk the top-level keys of an OpenClaw Zod schema and produce
- * section metadata for each one.
+ * section metadata for each one. Sections with no inspectable fields
+ * are omitted.
+ *
+ * @param schema - The root z.object() schema (e.g. OpenClawSchema)
+ * @param sensitiveRegistry - The sensitive field registry from zod-schema.sensitive.ts
+ * @param zModule - The Zod module reference (for toJSONSchema)
  */
 export function introspectSchema(
   schema: ZodSchema,
@@ -298,9 +385,12 @@ export function introspectSchema(
   const sections: SchemaSectionMeta[] = [];
 
   for (const [key, childSchema] of Object.entries(shape)) {
+    // Skip meta / $schema — not user-editable
     if (key === "$schema" || key === "meta") { continue; }
 
     const field = walkField(key, childSchema, [], sensitiveRegistry, zModule);
+    // If the top-level field has children, flatten them into section fields.
+    // Otherwise wrap it as a single-field section.
     const fields = field.children ?? [field];
 
     sections.push({
@@ -315,24 +405,25 @@ export function introspectSchema(
 
 // ─── Deep Diff ──────────────────────────────────────────────────────────────
 
-/** Default maximum recursion depth to prevent stack overflow on pathological input. */
-const DEFAULT_MAX_DEPTH = 20;
+export interface DiffEntry {
+  /** Dotted path (e.g. "gateway.port"). */
+  path: string;
+  type: "added" | "removed" | "changed";
+  oldValue?: unknown;
+  newValue?: unknown;
+}
 
 /**
  * Compute a deep diff between two config objects.
  * Returns an array of path-level changes. Arrays and non-object values
  * are compared by JSON serialization for simplicity.
- *
- * @param maxDepth - Maximum recursion depth (default 20). At the limit,
- *   subtrees are compared by JSON serialization.
  */
 export function deepDiff(
   oldObj: Record<string, unknown>,
   newObj: Record<string, unknown>,
   prefix = "",
-  maxDepth = DEFAULT_MAX_DEPTH,
-): ConfigDiffEntry[] {
-  const entries: ConfigDiffEntry[] = [];
+): DiffEntry[] {
+  const entries: DiffEntry[] = [];
   const allKeys = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
 
   for (const key of allKeys) {
@@ -353,9 +444,9 @@ export function deepDiff(
     }
 
     // Both exist — compare
-    if (maxDepth > 0 && isPlainObject(oldVal) && isPlainObject(newVal)) {
+    if (isPlainObject(oldVal) && isPlainObject(newVal)) {
       entries.push(
-        ...deepDiff(oldVal, newVal, path, maxDepth - 1),
+        ...deepDiff(oldVal, newVal, path),
       );
     } else if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
       entries.push({ path, type: "changed", oldValue: oldVal, newValue: newVal });

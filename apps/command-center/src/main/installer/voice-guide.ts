@@ -144,8 +144,12 @@ export class VoiceGuide {
       } else if (process.platform === "linux") {
         await execAsync(`espeak ${JSON.stringify(text)} 2>/dev/null || spd-say ${JSON.stringify(text)}`);
       } else if (process.platform === "win32") {
+        // Use -EncodedCommand (UTF-16LE base64) to avoid shell quoting conflicts.
+        // Embedding JSON.stringify(text) inside powershell -command "..." breaks
+        // when the text contains double-quotes or special shell characters.
         const script = `Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Speak(${JSON.stringify(text)})`;
-        await execAsync(`powershell -command "${script}"`);
+        const encoded = Buffer.from(script, "utf16le").toString("base64");
+        await execAsync(`powershell -EncodedCommand ${encoded}`);
       }
     } catch {
       // TTS completely unavailable — silent

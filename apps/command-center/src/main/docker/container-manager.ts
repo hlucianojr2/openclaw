@@ -53,9 +53,16 @@ export class ContainerManager {
      * channel credentials on first boot.
      */
     channelKeyHex?: string;
-    /** LLM provider identifier (e.g. "anthropic", "openai"). */
+    /**
+     * LLM provider identifier (e.g. "anthropic", "openai").
+     * Injected as LLM_PROVIDER so the gateway can initialise the AI provider
+     * immediately without reading openclaw-gateway.json.
+     */
     llmProvider?: string;
-    /** LLM API key — injected as OPENCLAW_LLM_API_KEY so the gateway can call the AI provider. */
+    /**
+     * LLM API key. Injected as LLM_API_KEY alongside llmProvider.
+     * Non-empty string only — omitted when blank to avoid leaking an empty var.
+     */
     llmApiKey?: string;
   }): Promise<void> {
     const image = config.image ?? OPENCLAW_IMAGE;
@@ -78,8 +85,8 @@ export class ContainerManager {
         `OPENCLAW_GATEWAY_TOKEN=${config.gatewayToken}`,
         "NODE_ENV=production",
         ...(config.channelKeyHex ? [`OPENCLAW_CHANNEL_KEY=${config.channelKeyHex}`] : []),
-        ...(config.llmProvider ? [`OPENCLAW_LLM_PROVIDER=${config.llmProvider}`] : []),
-        ...(config.llmApiKey ? [`OPENCLAW_LLM_API_KEY=${config.llmApiKey}`] : []),
+        ...(config.llmProvider ? [`LLM_PROVIDER=${config.llmProvider}`] : []),
+        ...(config.llmApiKey ? [`LLM_API_KEY=${config.llmApiKey}`] : []),
       ],
       ports: {
         [String(gatewayPort)]: gatewayPort,
@@ -92,8 +99,10 @@ export class ContainerManager {
       network,
       labels: roleLabel("gateway"),
     });
-
-    await gateway.start();
+    // NOTE: container is created but NOT started here.
+    // startEnvironment() is called after all config files have been written to
+    // the bind-mounted configDir so the gateway can read them on first boot.
+    void gateway; // created and registered with Docker; start via startEnvironment()
   }
 
   /**

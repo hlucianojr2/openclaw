@@ -92,7 +92,9 @@ describe("ContainerManager", () => {
   // ── createEnvironment() ─────────────────────────────────────────────────
 
   describe("createEnvironment()", () => {
-    it("creates and starts the gateway container", async () => {
+    it("creates the gateway container without starting it", async () => {
+      // createEnvironment only creates; startEnvironment() is the correct
+      // trigger after all config files have been written to the bind-mount.
       const startFn = vi.fn().mockResolvedValue(undefined);
       createContainerFn.mockResolvedValue({ start: startFn });
 
@@ -103,7 +105,7 @@ describe("ContainerManager", () => {
       });
 
       expect(createContainerFn).toHaveBeenCalledOnce();
-      expect(startFn).toHaveBeenCalledOnce();
+      expect(startFn).not.toHaveBeenCalled();
     });
 
     it("uses the provided network name", async () => {
