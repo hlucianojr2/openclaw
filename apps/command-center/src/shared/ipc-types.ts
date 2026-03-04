@@ -99,37 +99,6 @@ export interface ConfigField {
   placeholder?: string;
 }
 
-/** Result of reading the config file. */
-export interface ConfigReadResult {
-  config: Record<string, unknown>;
-  checksum: string;
-  configPath: string;
-}
-
-/** Result of writing the config file. */
-export interface ConfigWriteResult {
-  ok: boolean;
-  error?: string;
-  checksum: string;
-}
-
-/** Result of validating config against the Zod schema. */
-export interface ConfigValidationResult {
-  valid: boolean;
-  errors: { path: string; message: string }[];
-  /** Present when schema validation is unavailable in this environment. */
-  note?: string;
-}
-
-/** A single change between saved and pending config. */
-export interface ConfigDiffEntry {
-  /** Dotted path (e.g. "gateway.port"). */
-  path: string;
-  type: "added" | "removed" | "changed";
-  oldValue?: unknown;
-  newValue?: unknown;
-}
-
 // ─── Configuration Center (Phase 4) ─────────────────────────────────────────
 
 /** Renderer-facing field type for auto-generated config forms. */
@@ -458,14 +427,6 @@ export const IPC_CHANNELS = {
   CONFIG_SET: "occc:config:set",
   CONFIG_VALIDATE: "occc:config:validate",
   CONFIG_SECTIONS: "occc:config:sections",
-  CONFIG_READ: "occc:config:read",
-  CONFIG_WRITE: "occc:config:write",
-  CONFIG_PATH: "occc:config:path",
-  CONFIG_SCHEMA: "occc:config:schema",
-  CONFIG_RELOAD: "occc:config:reload",
-  CONFIG_DIFF: "occc:config:diff",
-
-  // Config Center (Phase 4)
   CONFIG_READ: "occc:config:read",
   CONFIG_WRITE: "occc:config:write",
   CONFIG_PATH: "occc:config:path",
