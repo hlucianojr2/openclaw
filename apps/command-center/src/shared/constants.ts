@@ -50,6 +50,38 @@ export const LLM_PRIORITY = [
 
 export type LLMProvider = (typeof LLM_PRIORITY)[number];
 
+// ─── Configuration Center Tabs ──────────────────────────────────────────────
+
+/** Tab identifiers for the Configuration Center. */
+export type ConfigTabId =
+  | "general"
+  | "models"
+  | "channels"
+  | "gateway"
+  | "security"
+  | "agents"
+  | "skills"
+  | "cron"
+  | "hooks"
+  | "json";
+
+/**
+ * Tab definitions for the Configuration Center.
+ * `schemaKeys` maps each tab to the top-level OpenClaw config keys it covers.
+ */
+export const CONFIG_TABS: { id: ConfigTabId; label: string; icon: string; schemaKeys: string[] }[] = [
+  { id: "general", label: "General", icon: "⚙", schemaKeys: ["logging", "update", "diagnostics", "env", "ui"] },
+  { id: "models", label: "Models", icon: "✦", schemaKeys: ["models", "auth"] },
+  { id: "channels", label: "Channels", icon: "◎", schemaKeys: ["channels"] },
+  { id: "gateway", label: "Gateway", icon: "◈", schemaKeys: ["gateway", "web", "discovery"] },
+  { id: "security", label: "Security", icon: "🛡", schemaKeys: ["tools"] },
+  { id: "agents", label: "Agents", icon: "🤖", schemaKeys: ["agents", "bindings", "broadcast", "session"] },
+  { id: "skills", label: "Skills", icon: "◆", schemaKeys: ["skills", "plugins"] },
+  { id: "cron", label: "Cron", icon: "⏱", schemaKeys: ["cron"] },
+  { id: "hooks", label: "Hooks", icon: "⇥", schemaKeys: ["hooks"] },
+  { id: "json", label: "JSON", icon: "{}", schemaKeys: [] },
+];
+
 /** RBAC role hierarchy (higher index = more permissions). */
 export const ROLE_HIERARCHY: Record<string, number> = {
   viewer: 0,

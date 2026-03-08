@@ -183,6 +183,81 @@ export function registerConfigIpcHandlers(sessions: SessionManager): void {
 
   // ─── Reload (Phase 4 — signal container to reload config) ─────────
 
+  ipcMain.handle(
+    IPC_CHANNELS.CONFIG_RELOAD,
+    async (_event, token: string): Promise<{ ok: boolean; error?: string }> => {
+      requireConfigWrite(token, sessions);
+      // In OCCC, the config file is bind-mounted into the Docker container.
+      // The gateway watches for changes via its reload mechanism; sending
+      // SIGHUP to the container signals a graceful config reload.
+      try {
+        const { DockerEngineClient } = await import("../docker/engine-client.js");
+        const { ContainerManager } = await import("../docker/container-manager.js");
+        const client = new DockerEngineClient();
+        const cm = new ContainerManager(client);
+        const status = await cm.getEnvironmentStatus();
+        if (status.gateway.state !== "running") {
+          return { ok: false, error: "Gateway container is not running" };
+        }
+        // Send SIGHUP via the Docker API to trigger graceful reload.
+        const container = client.getContainer(status.gateway.id);
+        await container.kill({ signal: "SIGHUP" });
+        return { ok: true };
+      } catch (err: unknown) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+      // Guard: verify the loaded module actually exports a Zod schema with safeParse
+      // before calling it — a missing/mismatched schema export would otherwise throw.
+      const validator = schema.OpenClawSchema;
+      if (typeof validator !== "object" || validator === null || typeof (validator as Record<string, unknown>)["safeParse"] !== "function") {
+        return { valid: true, errors: [], note: "Schema validation unavailable in this environment" };
+      }
+      type SafeParseResult = { success: boolean; error?: { issues: { path: (string | number)[]; message: string }[] } };
+      const result = (validator as { safeParse(data: unknown): SafeParseResult }).safeParse(config);
+      if (result.success) {
+        return { valid: true, errors: [] };
+      }
+      const errors = (result.error?.issues ?? []).map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      }));
+      return { valid: false, errors };
+    },
+  );
+
+  // ─── Schema Introspection (Phase 4) ────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SCHEMA, async (_event, token: string) => {
+    requireConfigRead(token, sessions);
+    const schema = await loadSchema();
+    if (!schema) {
+      return [];
+    }
+    // Cast to the internal ZodSchema shape expected by the introspector
+    const sections = introspectSchema(
+      schema.OpenClawSchema as Parameters<typeof introspectSchema>[0],
+      schema.sensitive as Parameters<typeof introspectSchema>[1],
+      schema.zModule as Parameters<typeof introspectSchema>[2],
+    );
+    return sections;
+  });
+
+  // ─── Diff (Phase 4) ────────────────────────────────────────────────
+
+  ipcMain.handle(
+    IPC_CHANNELS.CONFIG_DIFF,
+    async (_event, token: string, pending: Record<string, unknown>): Promise<ConfigDiffEntry[]> => {
+      requireConfigRead(token, sessions);
+      if (typeof pending !== "object" || pending === null) {
+        throw new Error("Invalid pending config: expected object");
+      }
+      const { config: saved } = await store.read();
+      return deepDiff(saved, pending);
+    },
+  );
+
+  // ─── Reload (Phase 4 — signal container to reload config) ─────────
+
   ipcMain.handle(IPC_CHANNELS.CONFIG_RELOAD, async (_event, token: string) => {
     requireConfigRead(token, sessions);
     // Re-read from disk — ConfigStore doesn't cache, so read() is always fresh.

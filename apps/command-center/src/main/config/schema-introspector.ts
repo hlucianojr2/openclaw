@@ -110,7 +110,7 @@ function isSensitive(schema: ZodSchema, registry: SensitiveRegistry): boolean {
 // ─── JSON Schema Constraint Extraction ──────────────────────────────────────
 
 /**
- * Try to extract min/max from a number schema via Zod's toJSONSchema.
+ * Try to extract min/max from a number schema's check constructors.
  * Falls back gracefully if checks aren't inspectable.
  */
 function extractNumericConstraints(
@@ -139,6 +139,12 @@ function extractNumericConstraints(
 
 /**
  * Recursively walk a Zod schema and extract field metadata.
+ *
+ * @param key - Field key within parent object
+ * @param schema - Zod schema to inspect
+ * @param path - Accumulated path segments
+ * @param registry - Sensitive field registry (or null)
+ * @param zModule - The Zod module (for toJSONSchema)
  */
 function walkField(
   key: string,
