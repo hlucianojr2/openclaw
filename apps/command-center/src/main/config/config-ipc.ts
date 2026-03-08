@@ -11,6 +11,7 @@ import { ipcMain } from "electron";
 import { ConfigStore } from "./config-store.js";
 import { introspectSchema, deepDiff } from "./schema-introspector.js";
 import type { SessionManager } from "../auth/session-manager.js";
+import type { AuthSession, SchemaSectionMeta } from "../../shared/ipc-types.js";
 import { hasPermission } from "../auth/rbac.js";
 import { IPC_CHANNELS } from "../../shared/ipc-types.js";
 import type { ConfigDiffEntry, ConfigValidationResult } from "../../shared/ipc-types.js";
@@ -114,7 +115,7 @@ export function registerConfigIpcHandlers(sessions: SessionManager): void {
   // ─── Patch (requires elevation) ────────────────────────────────────
 
   ipcMain.handle(
-    "occc:config:patch",
+    IPC_CHANNELS.CONFIG_PATCH,
     async (_event, token: string, patch: Record<string, unknown>, expectedChecksum?: string) => {
       requireConfigWrite(token, sessions);
       return store.patch(patch, expectedChecksum);
@@ -206,6 +207,40 @@ export function registerConfigIpcHandlers(sessions: SessionManager): void {
       } catch (err: unknown) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) };
       }
+    },
+  );
+
+  // ─── Schema Introspection ─────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SCHEMA, async (_event, token: string): Promise<SchemaSectionMeta[]> => {
+    requireConfigRead(sessions, token);
+
+    try {
+      const bundle = await getSchemaBundle();
+      // eslint-disable-next-line -- Zod internal shape is structurally compatible
+      return bundle.introspect(bundle.schema as never, bundle.sensitiveRegistry, bundle.zModule);
+    } catch {
+      return [];
+    }
+  });
+
+  // ─── Reload ───────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_RELOAD, async (_event, token: string) => {
+    requireConfigRead(sessions, token);
+    // Re-read from disk — ConfigStore doesn't cache, so read() is always fresh
+    return store.read();
+  });
+
+  // ─── Diff ─────────────────────────────────────────────────────────
+  // deepDiff is a pure utility — no schema load needed.
+
+  ipcMain.handle(
+    IPC_CHANNELS.CONFIG_DIFF,
+    async (_event, token: string, proposed: Record<string, unknown>) => {
+      requireConfigRead(sessions, token);
+      const { config: current } = await store.read();
+      return deepDiff(current, proposed);
     },
   );
 }

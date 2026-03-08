@@ -102,12 +102,12 @@ export function registerInstallerIpcHandlers(
   // ─── GitHub Backup ──────────────────────────────────────────────────
 
   ipcMain.handle(IPC_CHANNELS.INSTALL_GITHUB_VALIDATE_PAT, async (_event, pat: unknown) => {
-    if (typeof pat !== "string") { return { valid: false }; }
+    if (typeof pat !== "string") { return { ok: false, reason: "Invalid PAT type" }; }
     return githubSetup.validatePAT(pat);
   });
 
   ipcMain.handle(IPC_CHANNELS.INSTALL_GITHUB_CHECK_SCOPE, async (_event, pat: unknown) => {
-    if (typeof pat !== "string") { return { hasScope: false }; }
+    if (typeof pat !== "string") { return false; }
     return githubSetup.checkRepoScope(pat);
   });
 

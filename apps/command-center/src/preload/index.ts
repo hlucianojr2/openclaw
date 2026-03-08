@@ -76,7 +76,7 @@ const bridge: OcccBridge = {
   getDockerInfo: () =>
     ipcRenderer.invoke(IPC_CHANNELS.DOCKER_INFO),
 
-  // ─── Config ───────────────────────────────────────────────────────────
+  // ─── Config (legacy scaffold) ───────────────────────────────────────
   getConfigSections: (token) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SECTIONS, token),
   getConfig: (token, section) =>

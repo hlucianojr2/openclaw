@@ -89,3 +89,39 @@ export const ROLE_HIERARCHY: Record<string, number> = {
   admin: 2,
   "super-admin": 3,
 };
+
+// ─── Config Center Tab Definitions ──────────────────────────────────────────
+
+/** Stable identifiers for each configuration tab. */
+export type ConfigTabId =
+  | "gateway"
+  | "agents"
+  | "channels"
+  | "providers"
+  | "tools"
+  | "tts"
+  | "hooks"
+  | "security"
+  | "system"
+  | "advanced";
+
+export interface ConfigTab {
+  id: ConfigTabId;
+  label: string;
+  icon: string;
+  description: string;
+}
+
+/** Static list of configuration tabs shown in the renderer sidebar. */
+export const CONFIG_TABS: readonly ConfigTab[] = [
+  { id: "gateway", label: "Gateway", icon: "server", description: "Server, auth, and network settings" },
+  { id: "agents", label: "Agents", icon: "bot", description: "Agent configuration and defaults" },
+  { id: "channels", label: "Channels", icon: "message-square", description: "Messaging channel adapters" },
+  { id: "providers", label: "Providers", icon: "cloud", description: "LLM and AI provider keys" },
+  { id: "tools", label: "Tools", icon: "wrench", description: "Tool permissions and settings" },
+  { id: "tts", label: "TTS", icon: "volume-2", description: "Text-to-speech configuration" },
+  { id: "hooks", label: "Hooks", icon: "webhook", description: "Lifecycle hooks and scripts" },
+  { id: "security", label: "Security", icon: "shield", description: "RBAC, tokens, and trust settings" },
+  { id: "system", label: "System", icon: "settings", description: "Logging, paths, and runtime options" },
+  { id: "advanced", label: "Advanced", icon: "code", description: "Raw config editor and JSON view" },
+] as const;

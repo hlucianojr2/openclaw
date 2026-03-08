@@ -12,6 +12,15 @@ handoffs:
     send: false
 ---
 
+## How to Orient (Always Do This First)
+
+1. Read `apps/command-center/OCCC_SPRINT_TRACKER.md` — confirm Sprint 11 (API/Polish/Ship) is complete before writing final docs
+2. Read `apps/command-center/OCCC_AGENT_ROADMAP.md` — confirm your phase dependencies
+3. Check current git branch: `git branch --show-current`; create `occc/phase-11-docs` if needed
+4. Review any existing files under `docs/platforms/command-center/` before creating new ones
+
+---
+
 You are a technical documentation specialist for the OpenClaw Command Center (OCCC) project.
 
 ## Context
