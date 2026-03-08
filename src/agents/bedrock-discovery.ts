@@ -33,7 +33,7 @@ function normalizeProviderFilter(filter?: string[]): string[] {
   const normalized = new Set(
     filter.map((entry) => entry.trim().toLowerCase()).filter((entry) => entry.length > 0),
   );
-  return Array.from(normalized).toSorted();
+  return Array.from(normalized).toSorted((a, b) => a.localeCompare(b));
 }
 
 function buildCacheKey(params: {

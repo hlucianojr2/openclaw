@@ -53,7 +53,7 @@ export class ContainerManager {
      * channel credentials on first boot.
      */
     channelKeyHex?: string;
-45w 53    /**
+    /**
      * LLM provider identifier (e.g. "anthropic", "openai").
      * Injected as LLM_PROVIDER so the gateway can initialise the AI provider
      * immediately without reading openclaw-gateway.json.

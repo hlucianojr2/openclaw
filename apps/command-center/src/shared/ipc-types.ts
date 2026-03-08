@@ -99,37 +99,6 @@ export interface ConfigField {
   placeholder?: string;
 }
 
-/** Result of reading the config file. */
-export interface ConfigReadResult {
-  config: Record<string, unknown>;
-  checksum: string;
-  configPath: string;
-}
-
-/** Result of writing the config file. */
-export interface ConfigWriteResult {
-  ok: boolean;
-  error?: string;
-  checksum: string;
-}
-
-/** Result of validating config against the Zod schema. */
-export interface ConfigValidationResult {
-  valid: boolean;
-  errors: { path: string; message: string }[];
-  /** Present when schema validation is unavailable in this environment. */
-  note?: string;
-}
-
-/** A single change between saved and pending config. */
-export interface ConfigDiffEntry {
-  /** Dotted path (e.g. "gateway.port"). */
-  path: string;
-  type: "added" | "removed" | "changed";
-  oldValue?: unknown;
-  newValue?: unknown;
-}
-
 // ─── Configuration Center (Phase 4) ─────────────────────────────────────────
 
 /** Renderer-facing field type for auto-generated config forms. */
@@ -250,6 +219,77 @@ export interface SkillCatalogEntry {
   apiKeyLabel?: string;
   officialLink?: string;
   category: SkillCategory;
+}
+
+// ─── Skill Governance (Phase 5) ──────────────────────────────────────────────
+
+/** Mirror of scanner's SkillScanFinding for renderer use (avoids circular import). */
+export interface SkillScanFinding {
+  ruleId: string;
+  severity: "critical" | "warn" | "info";
+  file: string;
+  line: number;
+  message: string;
+  evidence: string;
+}
+
+/** Mirror of scanner's SkillScanSummary for renderer use. */
+export interface SkillScanSummary {
+  scannedFiles: number;
+  critical: number;
+  warn: number;
+  info: number;
+  findings: SkillScanFinding[];
+}
+
+/** Discriminated outcome of a skill install request. */
+export type SkillInstallOutcome =
+  | "approved_immediate"   // auto-approved: added to allowlist immediately
+  | "pending_user_ack"     // user-ack: waiting for user acknowledgement
+  | "pending_admin_review" // admin-review: scan queued, admin must approve
+  | "rejected"             // blocked by policy or unknown skill
+  | "blocked";             // catalog entry is explicitly blocked
+
+export interface SkillInstallResult {
+  outcome: SkillInstallOutcome;
+  skillId: string;
+  /** Set when outcome is pending_user_ack or pending_admin_review. */
+  requestId?: string;
+  message: string;
+}
+
+export interface SkillApprovalRequest {
+  id: string;
+  skillId: string;
+  skillName: string;
+  riskLevel: SkillRiskLevel;
+  approvalLevel: SkillApprovalLevel;
+  requestedAt: string;         // ISO 8601
+  requestedByUserId: string;
+  status: SkillApprovalStatus;
+  scanSummary?: SkillScanSummary;
+  aiReview?: AiReviewResult;
+  reviewedAt?: string;
+  reviewedByUserId?: string;
+  rejectionReason?: string;
+}
+
+export interface AiReviewResult {
+  recommendation: "approve" | "reject" | "review";
+  summary: string;
+  concerns: string[];
+  /** Confidence score 0–1. */
+  confidence: number;
+  provider: string;
+}
+
+export interface AllowlistEntry {
+  skillId: string;
+  skillName: string;
+  addedAt: string;       // ISO 8601
+  addedByUserId: string;
+  riskLevel: SkillRiskLevel;
+  scanSummary?: SkillScanSummary;
 }
 
 // ─── Channel Catalog (Wizard Step 7) ─────────────────────────────────────────
@@ -393,20 +433,22 @@ export const IPC_CHANNELS = {
   CONFIG_SCHEMA: "occc:config:schema",
   CONFIG_RELOAD: "occc:config:reload",
   CONFIG_DIFF: "occc:config:diff",
-
-  // Config Center (Phase 4)
-  CONFIG_READ: "occc:config:read",
-  CONFIG_WRITE: "occc:config:write",
-  CONFIG_PATH: "occc:config:path",
-  CONFIG_SCHEMA: "occc:config:schema",
-  CONFIG_RELOAD: "occc:config:reload",
-  CONFIG_DIFF: "occc:config:diff",
   CONFIG_PATCH: "occc:config:patch",
 
   // Skills
   SKILLS_LIST: "occc:skills:list",
   SKILLS_INSTALL: "occc:skills:install",
   SKILLS_SCAN: "occc:skills:scan",
+
+  // Skill Governance (Phase 5)
+  SKILLS_REQUEST_INSTALL: "occc:skills:request-install",
+  SKILLS_GET_ALLOWLIST: "occc:skills:get-allowlist",
+  SKILLS_GET_PENDING: "occc:skills:get-pending",
+  SKILLS_GET_REQUEST: "occc:skills:get-request",
+  SKILLS_APPROVE: "occc:skills:approve",
+  SKILLS_REJECT: "occc:skills:reject",
+  SKILLS_REMOVE_ALLOWLIST: "occc:skills:remove-allowlist",
+  SKILLS_PROGRESS: "occc:skills:progress",
 
   // System
   SYSTEM_VALIDATE: "occc:system:validate",
@@ -500,6 +542,15 @@ export interface OcccBridge {
   listSkills(token: string): Promise<SkillInfo[]>;
   installSkill(name: string): Promise<void>;
   scanSkill(path: string): Promise<{ approved: boolean; findings: string[] }>;
+
+  // Skill Governance (Phase 5, session required; mutations require elevation)
+  skillRequestInstall(token: string, skillId: string): Promise<SkillInstallResult>;
+  skillGetAllowlist(token: string): Promise<AllowlistEntry[]>;
+  skillGetPending(token: string): Promise<SkillApprovalRequest[]>;
+  skillGetRequest(token: string, requestId: string): Promise<SkillApprovalRequest | null>;
+  skillApprove(token: string, requestId: string): Promise<MutationResult>;
+  skillReject(token: string, requestId: string, reason?: string): Promise<MutationResult>;
+  skillRemoveAllowlist(token: string, skillId: string): Promise<MutationResult>;
 
   // System
   validateSystem(): Promise<SystemValidation>;

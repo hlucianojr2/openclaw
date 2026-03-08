@@ -108,6 +108,22 @@ const bridge: OcccBridge = {
   scanSkill: (path) =>
     ipcRenderer.invoke(IPC_CHANNELS.SKILLS_SCAN, path),
 
+  // ─── Skill Governance (Phase 5) ───────────────────────────────────────
+  skillRequestInstall: (token, skillId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SKILLS_REQUEST_INSTALL, token, skillId),
+  skillGetAllowlist: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SKILLS_GET_ALLOWLIST, token),
+  skillGetPending: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SKILLS_GET_PENDING, token),
+  skillGetRequest: (token, requestId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SKILLS_GET_REQUEST, token, requestId),
+  skillApprove: (token, requestId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SKILLS_APPROVE, token, requestId),
+  skillReject: (token, requestId, reason?) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SKILLS_REJECT, token, requestId, reason),
+  skillRemoveAllowlist: (token, skillId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SKILLS_REMOVE_ALLOWLIST, token, skillId),
+
   // ─── System ───────────────────────────────────────────────────────────
   validateSystem: () =>
     ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_VALIDATE),

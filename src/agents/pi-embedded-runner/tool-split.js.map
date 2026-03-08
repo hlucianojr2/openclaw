@@ -1,0 +1,1 @@
+{"version":3,"file":"tool-split.js","sourceRoot":"","sources":["tool-split.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,iBAAiB,EAAE,MAAM,kCAAkC,CAAC;AAMrE,MAAM,UAAU,aAAa,CAAC,OAA2D,EAGvF;IACA,MAAM,EAAE,KAAK,EAAE,GAAG,OAAO,CAAC;IAC1B,OAAO;QACL,YAAY,EAAE,EAAE;QAChB,WAAW,EAAE,iBAAiB,CAAC,KAAK,CAAC;KACtC,CAAC;AAAA,CACH"}

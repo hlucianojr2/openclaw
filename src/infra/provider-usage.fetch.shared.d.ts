@@ -1,0 +1,2 @@
+export declare function fetchJson(url: string, init: RequestInit, timeoutMs: number, fetchFn: typeof fetch): Promise<Response>;
+//# sourceMappingURL=provider-usage.fetch.shared.d.ts.map

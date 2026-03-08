@@ -1,0 +1,1 @@
+{"version":3,"file":"plugin-skills.d.ts","sourceRoot":"","sources":["plugin-skills.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,wBAAwB,CAAC;AAW7D,wBAAgB,sBAAsB,CAAC,MAAM,EAAE;IAC7C,YAAY,EAAE,MAAM,CAAC;IACrB,MAAM,CAAC,EAAE,cAAc,CAAC;CACzB,GAAG,MAAM,EAAE,CAyDX"}

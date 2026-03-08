@@ -11,7 +11,6 @@ import { ipcMain } from "electron";
 import { ConfigStore } from "./config-store.js";
 import { introspectSchema, deepDiff } from "./schema-introspector.js";
 import type { SessionManager } from "../auth/session-manager.js";
-import type { AuthSession, SchemaSectionMeta } from "../../shared/ipc-types.js";
 import { hasPermission } from "../auth/rbac.js";
 import { IPC_CHANNELS } from "../../shared/ipc-types.js";
 import type { ConfigDiffEntry, ConfigValidationResult } from "../../shared/ipc-types.js";
@@ -207,40 +206,62 @@ export function registerConfigIpcHandlers(sessions: SessionManager): void {
       } catch (err: unknown) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) };
       }
+      // Guard: verify the loaded module actually exports a Zod schema with safeParse
+      // before calling it — a missing/mismatched schema export would otherwise throw.
+      const validator = schema.OpenClawSchema;
+      if (typeof validator !== "object" || validator === null || typeof (validator as Record<string, unknown>)["safeParse"] !== "function") {
+        return { valid: true, errors: [], note: "Schema validation unavailable in this environment" };
+      }
+      type SafeParseResult = { success: boolean; error?: { issues: { path: (string | number)[]; message: string }[] } };
+      const result = (validator as { safeParse(data: unknown): SafeParseResult }).safeParse(config);
+      if (result.success) {
+        return { valid: true, errors: [] };
+      }
+      const errors = (result.error?.issues ?? []).map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      }));
+      return { valid: false, errors };
     },
   );
 
-  // ─── Schema Introspection ─────────────────────────────────────────
+  // ─── Schema Introspection (Phase 4) ────────────────────────────────
 
-  ipcMain.handle(IPC_CHANNELS.CONFIG_SCHEMA, async (_event, token: string): Promise<SchemaSectionMeta[]> => {
-    requireConfigRead(sessions, token);
-
-    try {
-      const bundle = await getSchemaBundle();
-      // eslint-disable-next-line -- Zod internal shape is structurally compatible
-      return bundle.introspect(bundle.schema as never, bundle.sensitiveRegistry, bundle.zModule);
-    } catch {
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SCHEMA, async (_event, token: string) => {
+    requireConfigRead(token, sessions);
+    const schema = await loadSchema();
+    if (!schema) {
       return [];
     }
+    // Cast to the internal ZodSchema shape expected by the introspector
+    const sections = introspectSchema(
+      schema.OpenClawSchema as Parameters<typeof introspectSchema>[0],
+      schema.sensitive as Parameters<typeof introspectSchema>[1],
+      schema.zModule as Parameters<typeof introspectSchema>[2],
+    );
+    return sections;
   });
 
-  // ─── Reload ───────────────────────────────────────────────────────
-
-  ipcMain.handle(IPC_CHANNELS.CONFIG_RELOAD, async (_event, token: string) => {
-    requireConfigRead(sessions, token);
-    // Re-read from disk — ConfigStore doesn't cache, so read() is always fresh
-    return store.read();
-  });
-
-  // ─── Diff ─────────────────────────────────────────────────────────
-  // deepDiff is a pure utility — no schema load needed.
+  // ─── Diff (Phase 4) ────────────────────────────────────────────────
 
   ipcMain.handle(
     IPC_CHANNELS.CONFIG_DIFF,
-    async (_event, token: string, proposed: Record<string, unknown>) => {
-      requireConfigRead(sessions, token);
-      const { config: current } = await store.read();
-      return deepDiff(current, proposed);
+    async (_event, token: string, pending: Record<string, unknown>): Promise<ConfigDiffEntry[]> => {
+      requireConfigRead(token, sessions);
+      if (typeof pending !== "object" || pending === null) {
+        throw new Error("Invalid pending config: expected object");
+      }
+      const { config: saved } = await store.read();
+      return deepDiff(saved, pending);
     },
   );
+
+  // ─── Reload (Phase 4 — signal container to reload config) ─────────
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_RELOAD, async (_event, token: string) => {
+    requireConfigRead(token, sessions);
+    // Re-read from disk — ConfigStore doesn't cache, so read() is always fresh.
+    return store.read();
+  });
+
 }

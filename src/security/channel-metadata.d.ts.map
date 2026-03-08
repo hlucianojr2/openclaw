@@ -1,0 +1,1 @@
+{"version":3,"file":"channel-metadata.d.ts","sourceRoot":"","sources":["channel-metadata.ts"],"names":[],"mappings":"AAoBA,wBAAgB,6BAA6B,CAAC,MAAM,EAAE;IACpD,MAAM,EAAE,MAAM,CAAC;IACf,KAAK,EAAE,MAAM,CAAC;IACd,OAAO,EAAE,KAAK,CAAC,MAAM,GAAG,IAAI,GAAG,SAAS,CAAC,CAAC;IAC1C,QAAQ,CAAC,EAAE,MAAM,CAAC;CACnB,GAAG,MAAM,GAAG,SAAS,CAmBrB"}

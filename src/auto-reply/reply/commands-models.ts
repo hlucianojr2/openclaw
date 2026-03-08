@@ -111,7 +111,7 @@ export async function buildModelsProviderData(cfg: OpenClawConfig): Promise<Mode
   add(resolvedDefault.provider, resolvedDefault.model);
   addModelConfigEntries();
 
-  const providers = [...byProvider.keys()].toSorted();
+  const providers = [...byProvider.keys()].toSorted((a, b) => a.localeCompare(b));
 
   return { byProvider, providers, resolvedDefault };
 }
@@ -235,7 +235,9 @@ export async function resolveModelsCommandReply(params: {
     return { text: lines.join("\n") };
   }
 
-  const models = [...(byProvider.get(provider) ?? new Set<string>())].toSorted();
+  const models = [...(byProvider.get(provider) ?? new Set<string>())].toSorted((a, b) =>
+    a.localeCompare(b),
+  );
   const total = models.length;
 
   if (total === 0) {

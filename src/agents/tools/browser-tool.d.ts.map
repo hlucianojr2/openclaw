@@ -1,0 +1,1 @@
+{"version":3,"file":"browser-tool.d.ts","sourceRoot":"","sources":["browser-tool.ts"],"names":[],"mappings":"AA4BA,OAAO,EAAE,KAAK,YAAY,EAAoD,MAAM,aAAa,CAAC;AAgMlG,wBAAgB,iBAAiB,CAAC,IAAI,CAAC,EAAE;IACvC,gBAAgB,CAAC,EAAE,MAAM,CAAC;IAC1B,gBAAgB,CAAC,EAAE,OAAO,CAAC;CAC5B,GAAG,YAAY,CA4lBf"}

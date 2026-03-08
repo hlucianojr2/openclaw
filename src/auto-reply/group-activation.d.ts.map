@@ -1,0 +1,1 @@
+{"version":3,"file":"group-activation.d.ts","sourceRoot":"","sources":["group-activation.ts"],"names":[],"mappings":"AAEA,MAAM,MAAM,mBAAmB,GAAG,SAAS,GAAG,QAAQ,CAAC;AAEvD,wBAAgB,wBAAwB,CAAC,GAAG,CAAC,EAAE,MAAM,GAAG,IAAI,GAAG,mBAAmB,GAAG,SAAS,CAS7F;AAED,wBAAgB,sBAAsB,CAAC,GAAG,CAAC,EAAE,MAAM,GAAG;IACpD,UAAU,EAAE,OAAO,CAAC;IACpB,IAAI,CAAC,EAAE,mBAAmB,CAAC;CAC5B,CAeA"}

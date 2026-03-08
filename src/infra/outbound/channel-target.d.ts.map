@@ -1,0 +1,1 @@
+{"version":3,"file":"channel-target.d.ts","sourceRoot":"","sources":["channel-target.ts"],"names":[],"mappings":"AAEA,eAAO,MAAM,0BAA0B,qIAC6F,CAAC;AAErI,eAAO,MAAM,2BAA2B,+GACsE,CAAC;AAE/G,wBAAgB,mBAAmB,CAAC,MAAM,EAAE;IAC1C,MAAM,EAAE,MAAM,CAAC;IACf,IAAI,EAAE,MAAM,CAAC,MAAM,EAAE,OAAO,CAAC,CAAC;CAC/B,GAAG,IAAI,CA2BP"}

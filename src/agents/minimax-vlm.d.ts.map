@@ -1,0 +1,1 @@
+{"version":3,"file":"minimax-vlm.d.ts","sourceRoot":"","sources":["minimax-vlm.ts"],"names":[],"mappings":"AAsCA,wBAAsB,sBAAsB,CAAC,MAAM,EAAE;IACnD,MAAM,EAAE,MAAM,CAAC;IACf,MAAM,EAAE,MAAM,CAAC;IACf,YAAY,EAAE,MAAM,CAAC;IACrB,OAAO,CAAC,EAAE,MAAM,CAAC;IACjB,YAAY,CAAC,EAAE,MAAM,CAAC;CACvB,GAAG,OAAO,CAAC,MAAM,CAAC,CAoElB"}

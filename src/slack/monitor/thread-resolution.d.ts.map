@@ -1,0 +1,1 @@
+{"version":3,"file":"thread-resolution.d.ts","sourceRoot":"","sources":["thread-resolution.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,SAAS,IAAI,cAAc,EAAE,MAAM,gBAAgB,CAAC;AAClE,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,aAAa,CAAC;AA0CrD,wBAAgB,2BAA2B,CAAC,MAAM,EAAE;IAClD,MAAM,EAAE,cAAc,CAAC;IACvB,UAAU,CAAC,EAAE,MAAM,CAAC;IACpB,OAAO,CAAC,EAAE,MAAM,CAAC;CAClB;;;;;EA+FA"}
