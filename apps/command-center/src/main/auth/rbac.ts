@@ -33,6 +33,10 @@ export type Permission =
   // Backup (admin+)
   | "backup:create"
   | "backup:restore"
+  // MCP Bridge (operator+ for view/approve; admin+ elevation for policy writes)
+  | "mcp:view"
+  | "mcp:approve"
+  | "mcp:policy-write"
   // User management (super-admin only)
   | "users:list"
   | "users:create"
@@ -55,6 +59,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "env:stop",
     "skills:list",
     "security:view",
+    "mcp:view",
+    "mcp:approve",
   ],
   "admin": [
     "view:dashboard",
@@ -71,6 +77,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "security:remediate",
     "backup:create",
     "backup:restore",
+    "mcp:view",
+    "mcp:approve",
+    "mcp:policy-write",
     "users:list",
   ],
   "super-admin": [
@@ -88,6 +97,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "security:remediate",
     "backup:create",
     "backup:restore",
+    "mcp:view",
+    "mcp:approve",
+    "mcp:policy-write",
     "users:list",
     "users:create",
     "users:delete",
@@ -106,6 +118,7 @@ export const ALWAYS_REQUIRE_ELEVATE: Set<Permission> = new Set([
   "skills:approve",
   "security:remediate",
   "backup:restore",
+  "mcp:policy-write",
   "users:create",
   "users:delete",
   "users:modify-role",

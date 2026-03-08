@@ -22,7 +22,9 @@ import { AuthEngine } from "./auth/auth-engine.js";
 import { registerAuthIpcHandlers } from "./auth/auth-ipc.js";
 import { registerInstallerIpcHandlers } from "./installer/installer-ipc.js";
 import { registerConfigIpcHandlers } from "./config/config-ipc.js";
-import { APP_NAME } from "../shared/constants.js";
+import { McpBridgeServer, McpPolicyStore, McpAuditLogger, registerMcpIpcHandlers } from "./mcp/index.js";
+import { APP_NAME, DEFAULT_MCP_BRIDGE_PORT } from "../shared/constants.js";
+import { randomBytes } from "node:crypto";
 
 // ─── Single Instance Lock ───────────────────────────────────────────────────
 
@@ -59,6 +61,7 @@ let containerManager: ContainerManager;
 let authStore: AuthStore;
 let sessionManager: SessionManager;
 let authEngine: AuthEngine;
+let mcpServer: McpBridgeServer;
 
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
 
@@ -83,15 +86,36 @@ void app.whenReady().then(async () => {
   dockerClient = new DockerEngineClient();
   containerManager = new ContainerManager(dockerClient);
 
+  // Initialize MCP Bridge
+  const mcpPolicyStore = new McpPolicyStore();
+  const mcpAuditLogger = new McpAuditLogger();
+  // Generate an ephemeral bearer token for the lifetime of this process.
+  // The token is stored in memory only and rotates on each app restart.
+  const mcpBearerToken = randomBytes(32).toString("hex");
+  mcpServer = new McpBridgeServer(mcpPolicyStore, mcpAuditLogger, mcpBearerToken, DEFAULT_MCP_BRIDGE_PORT);
+  try {
+    await mcpServer.start();
+    console.log(`[${APP_NAME}] MCP Bridge: listening on 127.0.0.1:${DEFAULT_MCP_BRIDGE_PORT}`);
+  } catch (err: unknown) {
+    console.error(`[${APP_NAME}] MCP Bridge: failed to start — ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   // Register IPC handlers (main process ↔ renderer bridge)
   registerIpcHandlers({ dockerClient, containerManager, sessionManager });
   registerAuthIpcHandlers(authEngine, sessionManager);
   registerInstallerIpcHandlers(dockerClient, containerManager, authEngine);
   registerConfigIpcHandlers(sessionManager);
+  registerMcpIpcHandlers(mcpServer, mcpPolicyStore, mcpAuditLogger, sessionManager);
 
   // Create main window
   windowManager = new WindowManager();
   await windowManager.createMainWindow();
+
+  // Attach window to MCP server so it can push IPC events to renderer
+  const mainWin = windowManager.getMainWindow();
+  if (mainWin) {
+    mcpServer.setMainWindow(mainWin);
+  }
 
   // Create system tray
   trayManager = new TrayManager(windowManager, containerManager);
@@ -120,6 +144,9 @@ app.on("before-quit", async () => {
   console.log(`[${APP_NAME}] Shutting down...`);
   sessionManager?.destroy();
   trayManager?.destroy();
+  if (mcpServer) {
+    await mcpServer.stop();
+  }
 });
 
 // Second instance tried to launch — bring existing window to front

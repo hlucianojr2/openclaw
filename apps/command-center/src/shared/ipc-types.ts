@@ -130,6 +130,76 @@ export interface ConfigDiffEntry {
   newValue?: unknown;
 }
 
+// ─── MCP Bridge ─────────────────────────────────────────────────────────────
+
+/**
+ * Tool categories for the MCP Bridge.
+ * Mirrors McpToolCategory in mcp-types.ts (re-exported here for renderer use).
+ */
+export type McpToolCategory =
+  | "filesystem"
+  | "clipboard"
+  | "browser"
+  | "system-info"
+  | "notifications"
+  | "app-control";
+
+/**
+ * Policy approval level for an MCP tool category.
+ * Mirrors McpApprovalLevel in mcp-types.ts.
+ */
+export type McpApprovalLevel =
+  | "auto-approved"
+  | "per-use"
+  | "path-constrained"
+  | "domain-allowlist"
+  | "blocked";
+
+/** Renderer-facing policy record. */
+export interface McpPolicy {
+  category: McpToolCategory;
+  level: McpApprovalLevel;
+  allowedDomains: string[];
+  workspacePath: string;
+  updatedAt: string;
+}
+
+/** Renderer-facing pending access request (for the approval UI). */
+export interface McpAccessRequest {
+  id: string;
+  toolName: string;
+  category: McpToolCategory;
+  agentId: string;
+  argsPreview: Record<string, unknown>;
+  state: "pending" | "approved" | "denied" | "expired" | "auto";
+  receivedAt: number;
+  resolvedAt?: number;
+}
+
+/** Outcome of a tool call stored in the audit log. */
+export type McpOutcome = "approved" | "denied" | "blocked" | "expired" | "error";
+
+/** Single audit log entry for the MCP Bridge. */
+export interface McpAuditEntry {
+  id: string;
+  toolName: string;
+  category: McpToolCategory;
+  agentId: string;
+  outcome: McpOutcome;
+  errorMessage?: string;
+  timestamp: string;
+}
+
+/** Real-time status of the MCP Bridge server. */
+export interface McpBridgeStatus {
+  running: boolean;
+  port: number;
+  pendingCount: number;
+  todayApproved: number;
+  todayDenied: number;
+  todayBlocked: number;
+}
+
 // ─── Skills ─────────────────────────────────────────────────────────────────
 
 export type SkillRiskLevel = "low" | "medium" | "high" | "blocked";
@@ -357,6 +427,19 @@ export const IPC_CHANNELS = {
   INSTALL_GET_SKILL_CATALOG: "occc:install:get-skill-catalog",
   INSTALL_GET_CHANNEL_CATALOG: "occc:install:get-channel-catalog",
   INSTALL_CHANNEL_VALIDATE: "occc:install:channel-validate",
+
+  // MCP Bridge (Phase 7)
+  MCP_GET_STATUS: "occc:mcp:get-status",
+  MCP_GET_PENDING: "occc:mcp:get-pending",
+  MCP_APPROVE: "occc:mcp:approve",
+  MCP_DENY: "occc:mcp:deny",
+  MCP_GET_POLICIES: "occc:mcp:get-policies",
+  MCP_SET_POLICY: "occc:mcp:set-policy",
+  MCP_GET_AUDIT_LOG: "occc:mcp:get-audit-log",
+
+  // MCP Bridge — push events (main → renderer)
+  MCP_ACCESS_REQUEST: "occc:mcp:access-request",
+  MCP_REQUEST_RESOLVED: "occc:mcp:request-resolved",
 } as const;
 
 // ─── API Bridge Type ────────────────────────────────────────────────────────
@@ -448,6 +531,15 @@ export interface OcccBridge {
   installGetSkillCatalog(): Promise<SkillCatalogEntry[]>;
   installGetChannelCatalog(): Promise<ChannelCatalogEntry[]>;
   installChannelValidate(channelId: string, config: Record<string, string>): Promise<{ valid: boolean; error?: string }>;
+
+  // MCP Bridge (Phase 7 — session required)
+  mcpGetStatus(token: string): Promise<McpBridgeStatus>;
+  mcpGetPending(token: string): Promise<McpAccessRequest[]>;
+  mcpApprove(token: string, requestId: string): Promise<{ ok: boolean }>;
+  mcpDeny(token: string, requestId: string): Promise<{ ok: boolean }>;
+  mcpGetPolicies(token: string): Promise<McpPolicy[]>;
+  mcpSetPolicy(token: string, category: McpToolCategory, updates: Partial<Pick<McpPolicy, "level" | "allowedDomains" | "workspacePath">>): Promise<McpPolicy>;
+  mcpGetAuditLog(token: string, limit?: number): Promise<McpAuditEntry[]>;
 
   // Events
   on(channel: string, callback: (...args: unknown[]) => void): void;

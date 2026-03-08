@@ -18,6 +18,7 @@ import { UserManagementPage } from "./pages/users/UserManagementPage.js";
 import { SessionsPage } from "./pages/SessionsPage.js";
 import { LogsPage } from "./pages/LogsPage.js";
 import { SkillsPage } from "./pages/SkillsPage.js";
+import { McpBridgePage } from "./pages/mcp/McpBridgePage.js";
 import type { AuthSession, OcccBridge } from "../shared/ipc-types.js";
 
 const occc = (window as unknown as { occc: OcccBridge }).occc;
@@ -42,15 +43,16 @@ export function useAuth() {
 
 // ─── Navigation ────────────────────────────────────────────────────────────
 
-type Page = "dashboard" | "installer" | "config" | "users" | "skills" | "sessions" | "logs" | "security";
+type Page = "dashboard" | "installer" | "config" | "users" | "skills" | "sessions" | "logs" | "security" | "mcp";
 
-const NAV_ITEMS: { id: Page; label: string; icon: string; section?: string; adminOnly?: boolean }[] = [
+const NAV_ITEMS: { id: Page; label: string; icon: string; section?: string; adminOnly?: boolean; badge?: boolean }[] = [
   { id: "dashboard", label: "Dashboard", icon: "◉" },
   { id: "sessions", label: "Sessions", icon: "◎" },
   { id: "logs", label: "Logs", icon: "☰" },
   { id: "config", label: "Configuration", icon: "⚙", section: "Manage" },
   { id: "skills", label: "Skills", icon: "◈" },
   { id: "security", label: "Security", icon: "◆" },
+  { id: "mcp", label: "MCP Bridge", icon: "⇌", badge: true },
   { id: "users", label: "Users", icon: "👥", adminOnly: true },
   { id: "installer", label: "Setup Wizard", icon: "▶", section: "System" },
 ];
@@ -65,6 +67,7 @@ export function App() {
   const [token, setToken] = useState<string | null>(null);
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [envHealth, setEnvHealth] = useState<string>("unknown");
+  const [mcpPendingCount, setMcpPendingCount] = useState(0);
 
   // Elevation modal state
   const [elevateModal, setElevateModal] = useState<{
@@ -108,6 +111,26 @@ export function App() {
     occc.isBiometricAvailable()
       .then((v) => setBiometricAvailable(v))
       .catch(() => {});
+  }, [appState]);
+
+  // MCP Bridge: listen for incoming access requests and update badge count
+  useEffect(() => {
+    if (appState !== "authenticated") {return;}
+
+    const handleRequest = () => {
+      setMcpPendingCount((n) => n + 1);
+    };
+    const handleResolved = () => {
+      // Re-query pending count from source of truth
+      setMcpPendingCount((n) => Math.max(0, n - 1));
+    };
+
+    occc.on("occc:mcp:access-request", handleRequest);
+    occc.on("occc:mcp:request-resolved", handleResolved);
+    return () => {
+      occc.off("occc:mcp:access-request", handleRequest);
+      occc.off("occc:mcp:request-resolved", handleResolved);
+    };
   }, [appState]);
 
   // Poll env health for tray indicator
@@ -235,6 +258,21 @@ export function App() {
                   >
                     <span className="icon">{item.icon}</span>
                     {item.label}
+                    {item.badge && item.id === "mcp" && mcpPendingCount > 0 && (
+                      <span style={{
+                        marginLeft: "auto",
+                        background: "var(--color-warning, #f59e0b)",
+                        color: "#000",
+                        borderRadius: "9px",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        padding: "1px 6px",
+                        minWidth: "18px",
+                        textAlign: "center",
+                      }}>
+                        {mcpPendingCount}
+                      </span>
+                    )}
                   </div>
                 </React.Fragment>
               );
@@ -274,6 +312,7 @@ export function App() {
           )}
           {activePage === "config" && <ConfigCenter />}
           {activePage === "skills" && <SkillsPage />}
+          {activePage === "mcp" && <McpBridgePage pendingCount={mcpPendingCount} />}
           {activePage === "users" && <UserManagementPage />}
           {activePage === "security" && (
             <PlaceholderPage

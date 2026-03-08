@@ -156,6 +156,22 @@ const bridge: OcccBridge = {
   installChannelValidate: (channelId, config) =>
     ipcRenderer.invoke(IPC_CHANNELS.INSTALL_CHANNEL_VALIDATE, channelId, config),
 
+  // ─── MCP Bridge (Phase 7) ─────────────────────────────────────────────
+  mcpGetStatus: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.MCP_GET_STATUS, token),
+  mcpGetPending: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.MCP_GET_PENDING, token),
+  mcpApprove: (token, requestId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.MCP_APPROVE, token, requestId),
+  mcpDeny: (token, requestId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.MCP_DENY, token, requestId),
+  mcpGetPolicies: (token) =>
+    ipcRenderer.invoke(IPC_CHANNELS.MCP_GET_POLICIES, token),
+  mcpSetPolicy: (token, category, updates) =>
+    ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_POLICY, token, category, updates),
+  mcpGetAuditLog: (token, limit?) =>
+    ipcRenderer.invoke(IPC_CHANNELS.MCP_GET_AUDIT_LOG, token, limit),
+
   // ─── Events (main → renderer) ─────────────────────────────────────────
   on: (channel, callback) => {
     // Only allow our namespaced channels
