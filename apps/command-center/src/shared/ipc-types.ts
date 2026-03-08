@@ -59,6 +59,17 @@ export interface DockerInfo {
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
+/** Field types the renderer can render. */
+export type ConfigFieldType =
+  | "text"
+  | "password"
+  | "number"
+  | "boolean"
+  | "select"
+  | "string-array"
+  | "record"
+  | "json";
+
 export interface ConfigSection {
   key: string;
   label: string;
@@ -69,13 +80,54 @@ export interface ConfigSection {
 export interface ConfigField {
   key: string;
   label: string;
-  type: "text" | "password" | "number" | "boolean" | "select" | "json";
+  type: ConfigFieldType;
   value: unknown;
   defaultValue: unknown;
   options?: { label: string; value: string }[];
   required: boolean;
   sensitive: boolean;
   description: string;
+  /** Numeric minimum constraint. */
+  min?: number;
+  /** Numeric maximum constraint. */
+  max?: number;
+  /** Full dotted path in the config tree (e.g. ["gateway", "auth", "mode"]). */
+  path?: string[];
+  /** For text fields: render as multiline textarea. */
+  multiline?: boolean;
+  /** Placeholder hint text. */
+  placeholder?: string;
+}
+
+/** Result of reading the config file. */
+export interface ConfigReadResult {
+  config: Record<string, unknown>;
+  checksum: string;
+  configPath: string;
+}
+
+/** Result of writing the config file. */
+export interface ConfigWriteResult {
+  ok: boolean;
+  error?: string;
+  checksum: string;
+}
+
+/** Result of validating config against the Zod schema. */
+export interface ConfigValidationResult {
+  valid: boolean;
+  errors: { path: string; message: string }[];
+  /** Present when schema validation is unavailable in this environment. */
+  note?: string;
+}
+
+/** A single change between saved and pending config. */
+export interface ConfigDiffEntry {
+  /** Dotted path (e.g. "gateway.port"). */
+  path: string;
+  type: "added" | "removed" | "changed";
+  oldValue?: unknown;
+  newValue?: unknown;
 }
 
 // ─── Configuration Center (Phase 4) ─────────────────────────────────────────
@@ -335,6 +387,12 @@ export const IPC_CHANNELS = {
   CONFIG_SET: "occc:config:set",
   CONFIG_VALIDATE: "occc:config:validate",
   CONFIG_SECTIONS: "occc:config:sections",
+  CONFIG_READ: "occc:config:read",
+  CONFIG_WRITE: "occc:config:write",
+  CONFIG_PATH: "occc:config:path",
+  CONFIG_SCHEMA: "occc:config:schema",
+  CONFIG_RELOAD: "occc:config:reload",
+  CONFIG_DIFF: "occc:config:diff",
 
   // Config Center (Phase 4)
   CONFIG_READ: "occc:config:read",
@@ -429,15 +487,14 @@ export interface OcccBridge {
   getConfig(token: string, section: string): Promise<Record<string, unknown>>;
   setConfig(token: string, section: string, values: Record<string, unknown>): Promise<void>;
 
-  // Config Center (Phase 4)
+  // Config — Phase 4 typed methods (session required; write ops need elevation)
   readConfig(token: string): Promise<ConfigReadResult>;
-  writeConfig(token: string, config: Record<string, unknown>, expectedChecksum?: string): Promise<ConfigWriteResult>;
+  writeConfig(token: string, config: Record<string, unknown>, checksum?: string): Promise<ConfigWriteResult>;
   validateConfig(token: string, config: Record<string, unknown>): Promise<ConfigValidationResult>;
   getConfigPath(token: string): Promise<string>;
-  getConfigSchema(token: string): Promise<SchemaSectionMeta[]>;
-  reloadConfig(token: string): Promise<ConfigReadResult>;
-  getConfigDiff(token: string, proposed: Record<string, unknown>): Promise<ConfigDiffEntry[]>;
-  patchConfig(token: string, patch: Record<string, unknown>, expectedChecksum?: string): Promise<ConfigWriteResult>;
+  getConfigSchema(token: string): Promise<ConfigSection[]>;
+  reloadConfig(token: string): Promise<{ ok: boolean; error?: string }>;
+  getConfigDiff(token: string, pending: Record<string, unknown>): Promise<ConfigDiffEntry[]>;
 
   // Skills (session required)
   listSkills(token: string): Promise<SkillInfo[]>;
