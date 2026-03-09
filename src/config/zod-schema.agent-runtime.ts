@@ -1,13 +1,12 @@
 import { z } from "zod";
+import { getBlockedNetworkModeReason } from "../agents/sandbox/network-mode.js";
 import { parseDurationMs } from "../cli/parse-duration.js";
 import { AgentModelSchema } from "./zod-schema.agent-model.js";
 import {
-  DockerImageSchema,
-  ExecutableTokenSchema,
   GroupChatSchema,
   HumanDelaySchema,
   IdentitySchema,
-  SafePathSchema,
+  SecretInputSchema,
   ToolsLinksSchema,
   ToolsMediaSchema,
 } from "./zod-schema.core.js";
@@ -28,10 +27,13 @@ export const HeartbeatSchema = z
     session: z.string().optional(),
     includeReasoning: z.boolean().optional(),
     target: z.string().optional(),
+    directPolicy: z.union([z.literal("allow"), z.literal("block")]).optional(),
     to: z.string().optional(),
     accountId: z.string().optional(),
     prompt: z.string().optional(),
     ackMaxChars: z.number().int().nonnegative().optional(),
+    suppressToolErrorWarnings: z.boolean().optional(),
+    lightContext: z.boolean().optional(),
   })
   .strict()
   .superRefine((val, ctx) => {
@@ -90,55 +92,20 @@ export const HeartbeatSchema = z
   })
   .optional();
 
-/**
- * Schema for Docker sandbox container configuration.
- * Defense-in-depth: validates config at parse time. A second validation pass
- * runs at container creation time via `validateSandboxSecurity()` in
- * `validate-sandbox-security.ts` (covers bind mounts, network mode, profiles).
- */
 export const SandboxDockerSchema = z
   .object({
-    image: DockerImageSchema.optional(),
+    image: z.string().optional(),
     containerPrefix: z.string().optional(),
-    workdir: SafePathSchema.optional(),
+    workdir: z.string().optional(),
     readOnlyRoot: z.boolean().optional(),
-    /** tmpfs mounts — allowlisted options only.
-     *  `exec` and `suid` are BLOCKED because they allow code execution and
-     *  setuid escalation inside read-only containers, defeating isolation. */
-    tmpfs: z
-      .array(
-        z
-          .string()
-          .regex(
-            /^\/[a-zA-Z0-9/_.-]+(:(size|mode|uid|gid|nr_inodes|noexec|nosuid|nodev|ro)(=[a-zA-Z0-9]+)?(,(size|mode|uid|gid|nr_inodes|noexec|nosuid|nodev|ro)(=[a-zA-Z0-9]+)?)*)?$/,
-            "expected tmpfs entry: /path or /path:options (allowed options: size, mode, uid, gid, nr_inodes, noexec, nosuid, nodev, ro)",
-          ),
-      )
-      .optional(),
+    tmpfs: z.array(z.string()).optional(),
     network: z.string().optional(),
-    /** Container user — blocks root (UID 0) because running as root inside the
-     *  container weakens namespace isolation. Case-insensitive check; also
-     *  catches `0:1000` format (UID:GID where UID=0). */
-    user: z
-      .string()
-      .refine((v) => {
-        const trimmed = v.trim().toLowerCase();
-        if (trimmed === "root" || trimmed === "0") {
-          return false;
-        }
-        if (trimmed.startsWith("0:")) {
-          return false;
-        }
-        return true;
-      }, "sandbox user must not be root (0) — running as root inside the container weakens isolation")
-      .optional(),
+    user: z.string().optional(),
     capDrop: z.array(z.string()).optional(),
     env: z.record(z.string(), z.string()).optional(),
     setupCommand: z
-      .string()
-      .max(1024, "setupCommand too long (max 1024 chars)")
-      .refine((v) => !v.includes("\0"), "setupCommand must not contain null bytes")
-      .refine((v) => !/[\r\n]/.test(v), "setupCommand must not contain control characters")
+      .union([z.string(), z.array(z.string())])
+      .transform((value) => (Array.isArray(value) ? value.join("\n") : value))
       .optional(),
     pidsLimit: z.number().int().positive().optional(),
     memory: z.union([z.string(), z.number()]).optional(),
@@ -161,33 +128,12 @@ export const SandboxDockerSchema = z
       .optional(),
     seccompProfile: z.string().optional(),
     apparmorProfile: z.string().optional(),
-    /** DNS servers — IP addresses only (regex: `[0-9a-fA-F.:]`).
-     *  Hostnames are BLOCKED to prevent DNS hijacking: a malicious config
-     *  entry like `evil.dns.server` could redirect all container DNS queries
-     *  to an attacker-controlled resolver for exfiltration or MITM. */
-    dns: z
-      .array(z.string().regex(/^[0-9a-fA-F.:]+$/, "expected IP address for DNS server"))
-      .optional(),
-    /** Extra /etc/hosts entries — strict format `hostname:ip`.
-     *  Cloud metadata IPs (169.254.169.254, fd00:ec2::*) are BLOCKED to
-     *  prevent SSRF attacks that steal cloud credentials via the instance
-     *  metadata service (AWS IMDSv1, GCP, Azure). */
-    extraHosts: z
-      .array(
-        z
-          .string()
-          .regex(
-            /^[a-zA-Z0-9._-]+:[0-9a-fA-F:.]+$/,
-            "expected extraHosts entry in format hostname:ip",
-          )
-          .refine((v) => {
-            const ip = v.split(":").slice(1).join(":");
-            // Block cloud metadata endpoints (AWS, GCP, Azure)
-            return ip !== "169.254.169.254" && !ip.startsWith("fd00:ec2:");
-          }, "cloud metadata IPs (169.254.169.254, fd00:ec2::*) are blocked — SSRF risk"),
-      )
-      .optional(),
+    dns: z.array(z.string()).optional(),
+    extraHosts: z.array(z.string()).optional(),
     binds: z.array(z.string()).optional(),
+    dangerouslyAllowReservedContainerTargets: z.boolean().optional(),
+    dangerouslyAllowExternalBindSources: z.boolean().optional(),
+    dangerouslyAllowContainerNamespaceJoin: z.boolean().optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -215,12 +161,25 @@ export const SandboxDockerSchema = z
         }
       }
     }
-    if (data.network?.trim().toLowerCase() === "host") {
+    const blockedNetworkReason = getBlockedNetworkModeReason({
+      network: data.network,
+      allowContainerNamespaceJoin: data.dangerouslyAllowContainerNamespaceJoin === true,
+    });
+    if (blockedNetworkReason === "host") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["network"],
         message:
           'Sandbox security: network mode "host" is blocked. Use "bridge" or "none" instead.',
+      });
+    }
+    if (blockedNetworkReason === "container_namespace_join") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["network"],
+        message:
+          'Sandbox security: network mode "container:*" is blocked by default. ' +
+          "Use a custom bridge network, or set dangerouslyAllowContainerNamespaceJoin=true only when you fully trust this runtime.",
       });
     }
     if (data.seccompProfile?.trim().toLowerCase() === "unconfined") {
@@ -249,7 +208,9 @@ export const SandboxBrowserSchema = z
     enabled: z.boolean().optional(),
     image: z.string().optional(),
     containerPrefix: z.string().optional(),
+    network: z.string().optional(),
     cdpPort: z.number().int().positive().optional(),
+    cdpSourceRange: z.string().optional(),
     vncPort: z.number().int().positive().optional(),
     noVncPort: z.number().int().positive().optional(),
     headless: z.boolean().optional(),
@@ -258,6 +219,16 @@ export const SandboxBrowserSchema = z
     autoStart: z.boolean().optional(),
     autoStartTimeoutMs: z.number().int().positive().optional(),
     binds: z.array(z.string()).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.network?.trim().toLowerCase() === "host") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["network"],
+        message:
+          'Sandbox security: browser network mode "host" is blocked. Use "bridge" or a custom bridge network instead.',
+      });
+    }
   })
   .strict()
   .optional();
@@ -291,14 +262,24 @@ export const ToolPolicySchema = ToolPolicyBaseSchema.superRefine((value, ctx) =>
 export const ToolsWebSearchSchema = z
   .object({
     enabled: z.boolean().optional(),
-    provider: z.union([z.literal("brave"), z.literal("perplexity"), z.literal("grok")]).optional(),
-    apiKey: z.string().optional().register(sensitive),
+    provider: z
+      .union([
+        z.literal("brave"),
+        z.literal("perplexity"),
+        z.literal("grok"),
+        z.literal("gemini"),
+        z.literal("kimi"),
+      ])
+      .optional(),
+    apiKey: SecretInputSchema.optional().register(sensitive),
     maxResults: z.number().int().positive().optional(),
     timeoutSeconds: z.number().int().positive().optional(),
     cacheTtlMinutes: z.number().nonnegative().optional(),
     perplexity: z
       .object({
-        apiKey: z.string().optional().register(sensitive),
+        apiKey: SecretInputSchema.optional().register(sensitive),
+        // Legacy Sonar/OpenRouter compatibility fields.
+        // Setting either opts Perplexity back into the chat-completions path.
         baseUrl: z.string().optional(),
         model: z.string().optional(),
       })
@@ -306,9 +287,30 @@ export const ToolsWebSearchSchema = z
       .optional(),
     grok: z
       .object({
-        apiKey: z.string().optional().register(sensitive),
+        apiKey: SecretInputSchema.optional().register(sensitive),
         model: z.string().optional(),
         inlineCitations: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+    gemini: z
+      .object({
+        apiKey: SecretInputSchema.optional().register(sensitive),
+        model: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+    kimi: z
+      .object({
+        apiKey: SecretInputSchema.optional().register(sensitive),
+        baseUrl: z.string().optional(),
+        model: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+    brave: z
+      .object({
+        mode: z.union([z.literal("web"), z.literal("llm-context")]).optional(),
       })
       .strict()
       .optional(),
@@ -341,6 +343,24 @@ export const ToolProfileSchema = z
   .union([z.literal("minimal"), z.literal("coding"), z.literal("messaging"), z.literal("full")])
   .optional();
 
+type AllowlistPolicy = {
+  allow?: string[];
+  alsoAllow?: string[];
+};
+
+function addAllowAlsoAllowConflictIssue(
+  value: AllowlistPolicy,
+  ctx: z.RefinementCtx,
+  message: string,
+): void {
+  if (value.allow && value.allow.length > 0 && value.alsoAllow && value.alsoAllow.length > 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message,
+    });
+  }
+}
+
 export const ToolPolicyWithProfileSchema = z
   .object({
     allow: z.array(z.string()).optional(),
@@ -350,13 +370,11 @@ export const ToolPolicyWithProfileSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (value.allow && value.allow.length > 0 && value.alsoAllow && value.alsoAllow.length > 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "tools.byProvider policy cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
-      });
-    }
+    addAllowAlsoAllowConflictIssue(
+      value,
+      ctx,
+      "tools.byProvider policy cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
+    );
   });
 
 // Provider docking: allowlists keyed by provider id (no schema updates when adding providers).
@@ -373,13 +391,24 @@ const ToolExecApplyPatchSchema = z
   .strict()
   .optional();
 
+const ToolExecSafeBinProfileSchema = z
+  .object({
+    minPositional: z.number().int().nonnegative().optional(),
+    maxPositional: z.number().int().nonnegative().optional(),
+    allowedValueFlags: z.array(z.string()).optional(),
+    deniedFlags: z.array(z.string()).optional(),
+  })
+  .strict();
+
 const ToolExecBaseShape = {
   host: z.enum(["sandbox", "gateway", "node"]).optional(),
   security: z.enum(["deny", "allowlist", "full"]).optional(),
   ask: z.enum(["off", "on-miss", "always"]).optional(),
-  node: ExecutableTokenSchema.optional(),
-  pathPrepend: z.array(SafePathSchema).optional(),
-  safeBins: z.array(ExecutableTokenSchema).optional(),
+  node: z.string().optional(),
+  pathPrepend: z.array(z.string()).optional(),
+  safeBins: z.array(z.string()).optional(),
+  safeBinTrustedDirs: z.array(z.string()).optional(),
+  safeBinProfiles: z.record(z.string(), ToolExecSafeBinProfileSchema).optional(),
   backgroundMs: z.number().int().positive().optional(),
   timeoutSec: z.number().int().positive().optional(),
   cleanupMs: z.number().int().positive().optional(),
@@ -405,6 +434,52 @@ const ToolFsSchema = z
   .strict()
   .optional();
 
+const ToolLoopDetectionDetectorSchema = z
+  .object({
+    genericRepeat: z.boolean().optional(),
+    knownPollNoProgress: z.boolean().optional(),
+    pingPong: z.boolean().optional(),
+  })
+  .strict()
+  .optional();
+
+const ToolLoopDetectionSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    historySize: z.number().int().positive().optional(),
+    warningThreshold: z.number().int().positive().optional(),
+    criticalThreshold: z.number().int().positive().optional(),
+    globalCircuitBreakerThreshold: z.number().int().positive().optional(),
+    detectors: ToolLoopDetectionDetectorSchema,
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (
+      value.warningThreshold !== undefined &&
+      value.criticalThreshold !== undefined &&
+      value.warningThreshold >= value.criticalThreshold
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["criticalThreshold"],
+        message: "tools.loopDetection.warningThreshold must be lower than criticalThreshold.",
+      });
+    }
+    if (
+      value.criticalThreshold !== undefined &&
+      value.globalCircuitBreakerThreshold !== undefined &&
+      value.criticalThreshold >= value.globalCircuitBreakerThreshold
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["globalCircuitBreakerThreshold"],
+        message:
+          "tools.loopDetection.criticalThreshold must be lower than globalCircuitBreakerThreshold.",
+      });
+    }
+  })
+  .optional();
+
 export const AgentSandboxSchema = z
   .object({
     mode: z.union([z.literal("off"), z.literal("non-main"), z.literal("all")]).optional(),
@@ -412,21 +487,40 @@ export const AgentSandboxSchema = z
     sessionToolsVisibility: z.union([z.literal("spawned"), z.literal("all")]).optional(),
     scope: z.union([z.literal("session"), z.literal("agent"), z.literal("shared")]).optional(),
     perSession: z.boolean().optional(),
-    workspaceRoot: SafePathSchema.optional(),
+    workspaceRoot: z.string().optional(),
     docker: SandboxDockerSchema,
     browser: SandboxBrowserSchema,
     prune: SandboxPruneSchema,
   })
   .strict()
+  .superRefine((data, ctx) => {
+    const blockedBrowserNetworkReason = getBlockedNetworkModeReason({
+      network: data.browser?.network,
+      allowContainerNamespaceJoin: data.docker?.dangerouslyAllowContainerNamespaceJoin === true,
+    });
+    if (blockedBrowserNetworkReason === "container_namespace_join") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["browser", "network"],
+        message:
+          'Sandbox security: browser network mode "container:*" is blocked by default. ' +
+          "Set sandbox.docker.dangerouslyAllowContainerNamespaceJoin=true only when you fully trust this runtime.",
+      });
+    }
+  })
   .optional();
+
+const CommonToolPolicyFields = {
+  profile: ToolProfileSchema,
+  allow: z.array(z.string()).optional(),
+  alsoAllow: z.array(z.string()).optional(),
+  deny: z.array(z.string()).optional(),
+  byProvider: z.record(z.string(), ToolPolicyWithProfileSchema).optional(),
+};
 
 export const AgentToolsSchema = z
   .object({
-    profile: ToolProfileSchema,
-    allow: z.array(z.string()).optional(),
-    alsoAllow: z.array(z.string()).optional(),
-    deny: z.array(z.string()).optional(),
-    byProvider: z.record(z.string(), ToolPolicyWithProfileSchema).optional(),
+    ...CommonToolPolicyFields,
     elevated: z
       .object({
         enabled: z.boolean().optional(),
@@ -436,6 +530,7 @@ export const AgentToolsSchema = z
       .optional(),
     exec: AgentToolExecSchema,
     fs: ToolFsSchema,
+    loopDetection: ToolLoopDetectionSchema,
     sandbox: z
       .object({
         tools: ToolPolicySchema,
@@ -445,13 +540,11 @@ export const AgentToolsSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (value.allow && value.allow.length > 0 && value.alsoAllow && value.alsoAllow.length > 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "agent tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
-      });
-    }
+    addAllowAlsoAllowConflictIssue(
+      value,
+      ctx,
+      "agent tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
+    );
   })
   .optional();
 
@@ -467,12 +560,19 @@ export const MemorySearchSchema = z
       .strict()
       .optional(),
     provider: z
-      .union([z.literal("openai"), z.literal("local"), z.literal("gemini"), z.literal("voyage")])
+      .union([
+        z.literal("openai"),
+        z.literal("local"),
+        z.literal("gemini"),
+        z.literal("voyage"),
+        z.literal("mistral"),
+        z.literal("ollama"),
+      ])
       .optional(),
     remote: z
       .object({
         baseUrl: z.string().optional(),
-        apiKey: z.string().optional().register(sensitive),
+        apiKey: SecretInputSchema.optional().register(sensitive),
         headers: z.record(z.string(), z.string()).optional(),
         batch: z
           .object({
@@ -493,6 +593,8 @@ export const MemorySearchSchema = z
         z.literal("gemini"),
         z.literal("local"),
         z.literal("voyage"),
+        z.literal("mistral"),
+        z.literal("ollama"),
         z.literal("none"),
       ])
       .optional(),
@@ -552,6 +654,20 @@ export const MemorySearchSchema = z
             vectorWeight: z.number().min(0).max(1).optional(),
             textWeight: z.number().min(0).max(1).optional(),
             candidateMultiplier: z.number().int().positive().optional(),
+            mmr: z
+              .object({
+                enabled: z.boolean().optional(),
+                lambda: z.number().min(0).max(1).optional(),
+              })
+              .strict()
+              .optional(),
+            temporalDecay: z
+              .object({
+                enabled: z.boolean().optional(),
+                halfLifeDays: z.number().int().positive().optional(),
+              })
+              .strict()
+              .optional(),
           })
           .strict()
           .optional(),
@@ -569,13 +685,40 @@ export const MemorySearchSchema = z
   .strict()
   .optional();
 export { AgentModelSchema };
+
+const AgentRuntimeAcpSchema = z
+  .object({
+    agent: z.string().optional(),
+    backend: z.string().optional(),
+    mode: z.enum(["persistent", "oneshot"]).optional(),
+    cwd: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
+const AgentRuntimeSchema = z
+  .union([
+    z
+      .object({
+        type: z.literal("embedded"),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("acp"),
+        acp: AgentRuntimeAcpSchema,
+      })
+      .strict(),
+  ])
+  .optional();
+
 export const AgentEntrySchema = z
   .object({
     id: z.string(),
     default: z.boolean().optional(),
     name: z.string().optional(),
-    workspace: SafePathSchema.optional(),
-    agentDir: SafePathSchema.optional(),
+    workspace: z.string().optional(),
+    agentDir: z.string().optional(),
     model: AgentModelSchema.optional(),
     skills: z.array(z.string()).optional(),
     memorySearch: MemorySearchSchema,
@@ -603,16 +746,13 @@ export const AgentEntrySchema = z
       .optional(),
     sandbox: AgentSandboxSchema,
     tools: AgentToolsSchema,
+    runtime: AgentRuntimeSchema,
   })
   .strict();
 
 export const ToolsSchema = z
   .object({
-    profile: ToolProfileSchema,
-    allow: z.array(z.string()).optional(),
-    alsoAllow: z.array(z.string()).optional(),
-    deny: z.array(z.string()).optional(),
-    byProvider: z.record(z.string(), ToolPolicyWithProfileSchema).optional(),
+    ...CommonToolPolicyFields,
     web: ToolsWebSchema,
     media: ToolsMediaSchema,
     links: ToolsLinksSchema,
@@ -622,6 +762,7 @@ export const ToolsSchema = z
       })
       .strict()
       .optional(),
+    loopDetection: ToolLoopDetectionSchema,
     message: z
       .object({
         allowCrossContextSend: z.boolean().optional(),
@@ -677,15 +818,28 @@ export const ToolsSchema = z
       })
       .strict()
       .optional(),
+    sessions_spawn: z
+      .object({
+        attachments: z
+          .object({
+            enabled: z.boolean().optional(),
+            maxTotalBytes: z.number().optional(),
+            maxFiles: z.number().optional(),
+            maxFileBytes: z.number().optional(),
+            retainOnSessionKeep: z.boolean().optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (value.allow && value.allow.length > 0 && value.alsoAllow && value.alsoAllow.length > 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
-      });
-    }
+    addAllowAlsoAllowConflictIssue(
+      value,
+      ctx,
+      "tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)",
+    );
   })
   .optional();

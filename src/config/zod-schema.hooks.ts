@@ -1,6 +1,6 @@
 import path from "node:path";
 import { z } from "zod";
-import { SafePathSchema } from "./zod-schema.core.js";
+import { InstallRecordShape } from "./zod-schema.installs.js";
 import { sensitive } from "./zod-schema.sensitive.js";
 
 function isSafeRelativeModulePath(raw: string): boolean {
@@ -97,12 +97,7 @@ const HookConfigSchema = z
 
 const HookInstallRecordSchema = z
   .object({
-    source: z.union([z.literal("npm"), z.literal("archive"), z.literal("path")]),
-    spec: z.string().optional(),
-    sourcePath: z.string().optional(),
-    installPath: z.string().optional(),
-    version: z.string().optional(),
-    installedAt: z.string().optional(),
+    ...InstallRecordShape,
     hooks: z.array(z.string()).optional(),
   })
   .strict();
@@ -114,7 +109,7 @@ export const InternalHooksSchema = z
     entries: z.record(z.string(), HookConfigSchema).optional(),
     load: z
       .object({
-        extraDirs: z.array(SafePathSchema).optional(),
+        extraDirs: z.array(z.string()).optional(),
       })
       .strict()
       .optional(),

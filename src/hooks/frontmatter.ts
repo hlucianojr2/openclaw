@@ -7,8 +7,10 @@ import type {
 } from "./types.js";
 import { parseFrontmatterBlock } from "../markdown/frontmatter.js";
 import {
+  applyOpenClawManifestInstallCommonFields,
   getFrontmatterString,
   normalizeStringList,
+  parseOpenClawManifestInstallBase,
   parseFrontmatterBool,
   resolveOpenClawManifestBlock,
   resolveOpenClawManifestInstall,
@@ -21,31 +23,17 @@ export function parseFrontmatter(content: string): ParsedHookFrontmatter {
 }
 
 function parseInstallSpec(input: unknown): HookInstallSpec | undefined {
-  if (!input || typeof input !== "object") {
+  const parsed = parseOpenClawManifestInstallBase(input, ["bundled", "npm", "git"]);
+  if (!parsed) {
     return undefined;
   }
-  const raw = input as Record<string, unknown>;
-  const kindRaw =
-    typeof raw.kind === "string" ? raw.kind : typeof raw.type === "string" ? raw.type : "";
-  const kind = kindRaw.trim().toLowerCase();
-  if (kind !== "bundled" && kind !== "npm" && kind !== "git") {
-    return undefined;
-  }
-
-  const spec: HookInstallSpec = {
-    kind: kind,
-  };
-
-  if (typeof raw.id === "string") {
-    spec.id = raw.id;
-  }
-  if (typeof raw.label === "string") {
-    spec.label = raw.label;
-  }
-  const bins = normalizeStringList(raw.bins);
-  if (bins.length > 0) {
-    spec.bins = bins;
-  }
+  const { raw } = parsed;
+  const spec = applyOpenClawManifestInstallCommonFields<HookInstallSpec>(
+    {
+      kind: parsed.kind as HookInstallSpec["kind"],
+    },
+    parsed,
+  );
   if (typeof raw.package === "string") {
     spec.package = raw.package;
   }

@@ -3,6 +3,7 @@ import type { TelegramAccountConfig } from "../config/types.telegram.js";
 import type { RuntimeEnv } from "../runtime.js";
 import type { TelegramBotOptions } from "./bot.js";
 import type { TelegramContext, TelegramStreamMode } from "./bot/types.js";
+import { danger } from "../globals.js";
 import {
   buildTelegramMessageContext,
   type BuildTelegramMessageContextParams,
@@ -39,6 +40,7 @@ export const createTelegramMessageProcessor = (deps: TelegramMessageProcessorDep
     resolveGroupActivation,
     resolveGroupRequireMention,
     resolveTelegramGroupConfig,
+    sendChatActionHandler,
     runtime,
     replyToMode,
     streamMode,
@@ -51,10 +53,12 @@ export const createTelegramMessageProcessor = (deps: TelegramMessageProcessorDep
     allMedia: TelegramMediaRef[],
     storeAllowFrom: string[],
     options?: { messageIdOverride?: string; forceWasMentioned?: boolean },
+    replyMedia?: TelegramMediaRef[],
   ) => {
     const context = await buildTelegramMessageContext({
       primaryCtx,
       allMedia,
+      replyMedia,
       storeAllowFrom,
       options,
       bot,
@@ -70,20 +74,34 @@ export const createTelegramMessageProcessor = (deps: TelegramMessageProcessorDep
       resolveGroupActivation,
       resolveGroupRequireMention,
       resolveTelegramGroupConfig,
+      sendChatActionHandler,
     });
     if (!context) {
       return;
     }
-    await dispatchTelegramMessage({
-      context,
-      bot,
-      cfg,
-      runtime,
-      replyToMode,
-      streamMode,
-      textLimit,
-      telegramCfg,
-      opts,
-    });
+    try {
+      await dispatchTelegramMessage({
+        context,
+        bot,
+        cfg,
+        runtime,
+        replyToMode,
+        streamMode,
+        textLimit,
+        telegramCfg,
+        opts,
+      });
+    } catch (err) {
+      runtime.error?.(danger(`telegram message processing failed: ${String(err)}`));
+      try {
+        await bot.api.sendMessage(
+          context.chatId,
+          "Something went wrong while processing your request. Please try again.",
+          context.threadSpec?.id != null ? { message_thread_id: context.threadSpec.id } : undefined,
+        );
+      } catch {
+        // Best-effort fallback; delivery may fail if the bot was blocked or the chat is invalid.
+      }
+    }
   };
 };
