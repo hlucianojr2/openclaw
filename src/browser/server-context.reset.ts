@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import type { ResolvedBrowserProfile } from "./config.js";
-import type { ProfileRuntimeState } from "./server-context.types.js";
+import { BrowserResetUnsupportedError } from "./errors.js";
 import { stopChromeExtensionRelayServer } from "./extension-relay.js";
+import { getBrowserProfileCapabilities } from "./profile-capabilities.js";
+import type { ProfileRuntimeState } from "./server-context.types.js";
 import { movePathToTrash } from "./trash.js";
 
 type ResetDeps = {
@@ -32,13 +34,14 @@ export function createProfileResetOps({
   isHttpReachable,
   resolveOpenClawUserDataDir,
 }: ResetDeps): ResetOps {
+  const capabilities = getBrowserProfileCapabilities(profile);
   const resetProfile = async () => {
-    if (profile.driver === "extension") {
+    if (capabilities.requiresRelay) {
       await stopChromeExtensionRelayServer({ cdpUrl: profile.cdpUrl }).catch(() => {});
       return { moved: false, from: profile.cdpUrl };
     }
-    if (!profile.cdpIsLoopback) {
-      throw new Error(
+    if (!capabilities.supportsReset) {
+      throw new BrowserResetUnsupportedError(
         `reset-profile is only supported for local profiles (profile "${profile.name}" is remote).`,
       );
     }
