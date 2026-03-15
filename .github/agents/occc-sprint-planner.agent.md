@@ -1,5 +1,5 @@
 ---
-name: occc-sprint-planner
+name: occc-sprint-planner-gh
 description: Orchestrates the OCCC project. Reads the sprint tracker to identify what is next, creates GitHub issues per phase, tracks sprint progress, and provides exact handoff prompts to the correct specialized agent.
 tools:
   - read

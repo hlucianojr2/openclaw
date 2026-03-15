@@ -1,5 +1,5 @@
 ---
-name: occc-docs
+name: occc-docs-gh
 description: Writes documentation for OCCC features. Updates docs/, README, CHANGELOG following Mintlify conventions.
 tools:
   - read

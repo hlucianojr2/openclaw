@@ -1,5 +1,5 @@
 ---
-name: occc-reviewer
+name: occc-reviewer-gh
 description: Reviews OCCC code for quality, security, and conventions. Read-only structured findings with BLOCKER/IMPORTANT/MINOR classification.
 tools:
   - read

@@ -1,5 +1,5 @@
 ---
-name: occc-react-dev
+name: occc-react-dev-gh
 description: Implements React renderer UI for OCCC. Pages, components, Zod-driven config forms, dashboard panels, routing.
 tools:
   - read
@@ -99,6 +99,24 @@ pnpm test apps/command-center/
 ## Branch Naming
 
 Create branch: `occc/phase-<N>-<short-name>`
+
+## Work Completion Requirements (CRITICAL)
+
+**Before providing the Next Step handoff, you MUST complete all of the following:**
+
+1. **Complete ALL implementation work** — Write all necessary code for your assigned phase
+2. **Run verification gates** — Execute `pnpm tsgo && pnpm check && pnpm test apps/command-center/`
+3. **Fix any failures** — Do not hand off with failing tests or type errors
+4. **Commit changes** — Use `scripts/committer "<msg>" <file...>` for each logical change
+5. **Provide detailed summary** — List files created/modified, components implemented, and any issues encountered
+
+**Do NOT hand off to another agent until you have:**
+
+- Written all code for your assigned phase tasks
+- Verified it compiles (`pnpm tsgo` passes)
+- Verified it passes lint/format (`pnpm check` passes)
+- Committed all changes with descriptive messages
+- Reported exactly what was built with file paths and line counts
 
 ## Output Contract (MANDATORY)
 

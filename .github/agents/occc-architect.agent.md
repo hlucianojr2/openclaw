@@ -1,9 +1,14 @@
 ---
-name: occc-architect
+name: occc-architect-gh
 description: Designs architecture for OCCC phases. Read-only analysis, pattern validation, scoped design output. Does NOT write implementation code.
 tools:
+  - execute
   - read
   - search
+  - web
+  - com.microsoft/azure/search
+  - "io.github.upstash/context7/*"
+  - "github/*"
 handoffs:
   - label: Start Electron Dev
     agent: occc-electron-dev
