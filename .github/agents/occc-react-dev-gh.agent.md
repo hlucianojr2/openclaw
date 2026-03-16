@@ -1,5 +1,5 @@
 ---
-name: occc-react-dev
+name: occc-react-dev-gh
 description: Implements React renderer UI for OCCC. Pages, components, Zod-driven config forms, dashboard panels, routing.
 tools:
   - read
@@ -8,7 +8,7 @@ tools:
   - execute
 handoffs:
   - label: Review Code
-    agent: occc-reviewer
+    agent: occc-reviewer-gh
     prompt: "Review the React UI implementation above. Check for: component structure, accessibility, proper IPC usage via window.occc bridge, no direct Node.js imports in renderer, responsive design patterns."
     send: false
 ---
@@ -90,16 +90,44 @@ pnpm test apps/command-center/
 
 Create branch: `occc/phase-<N>-<short-name>`
 
-## Output Contract (MANDATORY)
+---
 
-When you finish implementation, you MUST end your response with:
+## Output Contract — MANDATORY STOP GATE
+
+**STOP**: You MUST output the implementation summary below BEFORE selecting any handoff button or ending your response. Incomplete responses without the summary are invalid.
+
+When you finish implementation, output this summary then the handoff:
+
+```markdown
+## Implementation Summary for Human Review
+
+**Phase**: <N> — <description>
+**Branch**: <branch-name>
+**Files Created/Modified**:
+
+- <file1> — <brief description>
+- <file2> — <brief description>
+
+**Key Changes**:
+
+- <change 1>
+- <change 2>
+
+**Components Added/Modified**:
+
+- <ComponentName> — <purpose>
+
+**Verification Status**: Ran `pnpm tsgo && pnpm check` — PASS/FAIL
+```
+
+Then end with:
 
 ```markdown
 ## Next Step
 
-Phase <N> React UI implementation complete. Now invoke **occc-reviewer** to review:
+Phase <N> React UI implementation complete. Now invoke **occc-reviewer-gh** to review:
 
-Select the **Review Code** handoff button, or switch to the `occc-reviewer` agent and send:
+Select the **Review Code** handoff button, or switch to the `occc-reviewer-gh` agent and send:
 
     Review Phase <N> (<description>) React renderer implementation.
     Focus on: apps/command-center/src/renderer/<changed-dirs>/

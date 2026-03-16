@@ -20,6 +20,7 @@ npx tsc --noEmit     # TypeScript type-check (filter root errors: grep -v "^../.
 ```
 
 Run a single test file:
+
 ```bash
 pnpm vitest run test/skills/skill-governance.test.ts
 ```

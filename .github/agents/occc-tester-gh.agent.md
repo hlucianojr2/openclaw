@@ -1,5 +1,5 @@
 ---
-name: occc-tester
+name: occc-tester-gh
 description: Writes tests and runs verification gates for OCCC. TypeScript check, lint, unit/integration tests. Verification agent invoked after every review pass.
 tools:
   - read
@@ -8,23 +8,23 @@ tools:
   - execute
 handoffs:
   - label: Human Review
-    agent: occc-sprint-planner
+    agent: occc-sprint-planner-gh
     prompt: "Tests passed for the current phase. Update the sprint tracker and prepare for human review."
     send: false
   - label: Fix Failures (Electron)
-    agent: occc-electron-dev
+    agent: occc-electron-dev-gh
     prompt: "Fix the test failures listed above in the Electron main process code."
     send: false
   - label: Fix Failures (React)
-    agent: occc-react-dev
+    agent: occc-react-dev-gh
     prompt: "Fix the test failures listed above in the React renderer code."
     send: false
   - label: Fix Failures (Security)
-    agent: occc-security-dev
+    agent: occc-security-dev-gh
     prompt: "Fix the test failures listed above in the security/auth code."
     send: false
   - label: Fix Failures (Lockdown)
-    agent: occc-lockdown-dev
+    agent: occc-lockdown-dev-gh
     prompt: "Fix the test failures listed above in the core OpenClaw lockdown code."
     send: false
 ---
@@ -107,10 +107,19 @@ Write comprehensive tests for new features:
 - Config write protection with/without lockfile
 - Backward compatibility: existing auth modes unaffected
 
-## Verification Report Format
+## Verification Report Format (REQUIRED OUTPUT)
+
+You MUST output this report before any handoff. Do NOT proceed to handoff without providing the complete report.
 
 ```markdown
 ## Test Results
+
+### Summary for Human Review
+
+**Phase**: <N> — <description>
+**Branch**: <branch-name>
+**Final Status**: ALL GATES PASSED / FAILURES REMAIN
+**Action Required**: <what the human needs to do or acknowledge>
 
 ### Gate Results
 
@@ -129,26 +138,72 @@ Write comprehensive tests for new features:
 | Functions  | XX%   | 70%       | PASS/FAIL |
 | Statements | XX%   | 70%       | PASS/FAIL |
 
-### Final Status: ALL GATES PASSED / FAILURES REMAIN
+### Files Tested
+
+<list key files that were tested>
 ```
 
-## Output Contract (MANDATORY)
+---
 
-If **ALL GATES PASSED**:
+## Output Contract — MANDATORY STOP GATE
+
+**STOP**: You MUST output BOTH sections below BEFORE selecting any handoff button or ending your response. Responses missing either section are invalid and will be rejected.
+
+### Section 1: Test Results (REQUIRED)
+
+Output this report with actual values from your test run:
+
+```markdown
+## Test Results
+
+### Summary for Human Review
+
+**Phase**: <N> — <description>
+**Branch**: <branch-name>
+**Final Status**: ALL GATES PASSED / FAILURES REMAIN
+**Action Required**: <what the human needs to do or acknowledge>
+
+### Gate Results
+
+| Gate                       | Status    | Details                         |
+| -------------------------- | --------- | ------------------------------- |
+| TypeScript (`pnpm tsgo`)   | PASS/FAIL | <error count or clean>          |
+| Lint/Format (`pnpm check`) | PASS/FAIL | <details>                       |
+| Tests (`pnpm test`)        | PASS/FAIL | <X passed, Y failed, Z skipped> |
+
+### Coverage
+
+| Metric     | Value | Threshold | Status    |
+| ---------- | ----- | --------- | --------- |
+| Lines      | XX%   | 70%       | PASS/FAIL |
+| Branches   | XX%   | 70%       | PASS/FAIL |
+| Functions  | XX%   | 70%       | PASS/FAIL |
+| Statements | XX%   | 70%       | PASS/FAIL |
+
+### Files Tested
+
+<list key files that were tested>
+```
+
+### Section 2: Next Step (REQUIRED)
+
+You MUST output a `## Next Step` section after the test results. Choose based on outcome:
+
+**If ALL GATES PASSED**, output:
 
 ```markdown
 ## Next Step
 
 All verification gates passed. Ready for human review.
 
-Select the **Human Review** handoff button, or switch to the `occc-sprint-planner` agent and send:
+Select the **Human Review** handoff button, or switch to the `occc-sprint-planner-gh` agent and send:
 
     Phase <N> (<description>) passed all verification gates.
     Update the sprint tracker: status → human-review.
     Prepare summary for human operator review.
 ```
 
-If **FAILURES REMAIN** after fix attempts:
+**If FAILURES REMAIN** after fix attempts, output:
 
 ```markdown
 ## Next Step
@@ -161,6 +216,13 @@ Select the appropriate **Fix Failures** handoff button:
 - **Fix Failures (React)** — renderer issues
 - **Fix Failures (Security)** — auth/RBAC issues
 
-Or switch to the `occc-<domain>-dev` agent and send:
+Or switch to the `occc-<domain>-dev-gh` agent and send:
 Fix these test failures: <details>
 ```
+
+---
+
+**FINAL CHECK**: Before submitting your response, verify you have output:
+
+1. ✅ Test Results section with Summary for Human Review
+2. ✅ Next Step section with handoff instructions

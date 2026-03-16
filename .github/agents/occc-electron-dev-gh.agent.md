@@ -1,5 +1,5 @@
 ---
-name: occc-electron-dev
+name: occc-electron-dev-gh
 description: Implements Electron main process features for OCCC. Docker abstraction, IPC handlers, installer backend, tray, window, MCP bridge, auto-updates.
 tools:
   - read
@@ -8,7 +8,7 @@ tools:
   - execute
 handoffs:
   - label: Review Code
-    agent: occc-reviewer
+    agent: occc-reviewer-gh
     prompt: "Review the Electron main process implementation above. Check for: Electron security (contextIsolation, sandbox, CSP), IPC typing, no nodeIntegration leaks, proper error handling, file size < 700 LOC."
     send: false
 ---
@@ -103,16 +103,44 @@ pnpm test apps/command-center/
 
 Create branch: `occc/phase-<N>-<short-name>` (e.g., `occc/phase-1-foundation`)
 
-## Output Contract (MANDATORY)
+---
 
-When you finish implementation, you MUST end your response with:
+## Output Contract — MANDATORY STOP GATE
+
+**STOP**: You MUST output the implementation summary below BEFORE selecting any handoff button or ending your response. Incomplete responses without the summary are invalid.
+
+When you finish implementation, output this summary then the handoff:
+
+```markdown
+## Implementation Summary for Human Review
+
+**Phase**: <N> — <description>
+**Branch**: <branch-name>
+**Files Created/Modified**:
+
+- <file1> — <brief description>
+- <file2> — <brief description>
+
+**Key Changes**:
+
+- <change 1>
+- <change 2>
+
+**IPC Channels Added/Modified**:
+
+- <channel> — <purpose>
+
+**Verification Status**: Ran `pnpm tsgo && pnpm check` — PASS/FAIL
+```
+
+Then end with:
 
 ```markdown
 ## Next Step
 
-Phase <N> Electron implementation complete. Now invoke **occc-reviewer** to review:
+Phase <N> Electron implementation complete. Now invoke **occc-reviewer-gh** to review:
 
-Select the **Review Code** handoff button, or switch to the `occc-reviewer` agent and send:
+Select the **Review Code** handoff button, or switch to the `occc-reviewer-gh` agent and send:
 
     Review Phase <N> (<description>) Electron main process implementation.
     Focus on: apps/command-center/src/main/<changed-dirs>/

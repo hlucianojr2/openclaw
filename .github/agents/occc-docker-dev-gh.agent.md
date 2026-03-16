@@ -1,5 +1,5 @@
 ---
-name: occc-docker-dev
+name: occc-docker-dev-gh
 description: Implements Docker engine abstraction, container lifecycle management, compose orchestration, and backup/recovery for OCCC.
 tools:
   - read
@@ -8,7 +8,7 @@ tools:
   - execute
 handoffs:
   - label: Review Code
-    agent: occc-reviewer
+    agent: occc-reviewer-gh
     prompt: "Review the Docker abstraction implementation above. Check for: proper dockerode usage, error handling for Docker daemon disconnects, container cleanup, volume management safety, no credential leaks in compose configs."
     send: false
 ---
@@ -91,16 +91,44 @@ pnpm test apps/command-center/
 
 Create branch: `occc/phase-<N>-<short-name>`
 
-## Output Contract (MANDATORY)
+---
 
-When you finish implementation, you MUST end your response with:
+## Output Contract — MANDATORY STOP GATE
+
+**STOP**: You MUST output the implementation summary below BEFORE selecting any handoff button or ending your response. Incomplete responses without the summary are invalid.
+
+When you finish implementation, output this summary then the handoff:
+
+```markdown
+## Implementation Summary for Human Review
+
+**Phase**: <N> — <description>
+**Branch**: <branch-name>
+**Files Created/Modified**:
+
+- <file1> — <brief description>
+- <file2> — <brief description>
+
+**Key Changes**:
+
+- <change 1>
+- <change 2>
+
+**Docker Resources Managed**:
+
+- <resource type> — <lifecycle notes>
+
+**Verification Status**: Ran `pnpm tsgo && pnpm check` — PASS/FAIL
+```
+
+Then end with:
 
 ```markdown
 ## Next Step
 
-Phase <N> Docker implementation complete. Now invoke **occc-reviewer** to review:
+Phase <N> Docker implementation complete. Now invoke **occc-reviewer-gh** to review:
 
-Select the **Review Code** handoff button, or switch to the `occc-reviewer` agent and send:
+Select the **Review Code** handoff button, or switch to the `occc-reviewer-gh` agent and send:
 
     Review Phase <N> (<description>) Docker abstraction implementation.
     Focus on: apps/command-center/src/main/docker/ and apps/command-center/src/main/backup/

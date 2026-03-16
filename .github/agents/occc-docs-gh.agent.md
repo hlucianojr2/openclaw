@@ -1,5 +1,5 @@
 ---
-name: occc-docs
+name: occc-docs-gh
 description: Writes documentation for OCCC features. Updates docs/, README, CHANGELOG following Mintlify conventions.
 tools:
   - read
@@ -7,7 +7,7 @@ tools:
   - search
 handoffs:
   - label: Update Tracker
-    agent: occc-sprint-planner
+    agent: occc-sprint-planner-gh
     prompt: "Documentation for the current OCCC phase is complete. Update the sprint tracker and determine the next step."
     send: false
 ---
@@ -68,16 +68,42 @@ pnpm check   # format validation
 
 Create branch: `occc/phase-11-docs`
 
-## Output Contract (MANDATORY)
+---
 
-When you finish documentation, you MUST end your response with:
+## Output Contract — MANDATORY STOP GATE
+
+**STOP**: You MUST output the documentation summary below BEFORE selecting any handoff button or ending your response. Incomplete responses without the summary are invalid.
+
+When you finish documentation, output this summary then the handoff:
+
+```markdown
+## Documentation Summary for Human Review
+
+**Phase**: <N> — <description>
+**Branch**: <branch-name>
+**Files Created/Modified**:
+
+- <file1> — <brief description>
+- <file2> — <brief description>
+
+**New Documentation URLs**:
+
+- https://docs.openclaw.ai/platforms/command-center/<page1>
+- https://docs.openclaw.ai/platforms/command-center/<page2>
+
+**Navigation Updated**: <yes — added to docs.json | no>
+
+**Verification Status**: Ran `pnpm check` — PASS/FAIL
+```
+
+Then end with:
 
 ```markdown
 ## Next Step
 
-OCCC documentation complete. Select the **Update Tracker** handoff button, or switch to the `occc-sprint-planner` agent and send:
+OCCC documentation complete. Select the **Update Tracker** handoff button, or switch to the `occc-sprint-planner-gh` agent and send:
 
-    Documentation for Phase 11 is complete. Update the sprint tracker.
+    Documentation for Phase <N> is complete. Update the sprint tracker.
     Files updated: <list of doc files>
     New docs URLs: https://docs.openclaw.ai/platforms/command-center/<pages>
 ```

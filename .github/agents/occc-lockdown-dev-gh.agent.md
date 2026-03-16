@@ -1,5 +1,5 @@
 ---
-name: occc-lockdown-dev
+name: occc-lockdown-dev-gh
 description: Modifies core OpenClaw source code to enforce OCCC-only access. CLI gate, gateway control plane auth mode, config write protection, skill install gate.
 tools:
   - read
@@ -8,7 +8,7 @@ tools:
   - execute
 handoffs:
   - label: Review Lockdown
-    agent: occc-reviewer
+    agent: occc-reviewer-gh
     prompt: "Review the core OpenClaw lockdown changes. This modifies existing gateway auth and CLI entry — check carefully for regressions, backward compatibility concerns, and security bypass risks. Files: src/entry.ts, src/gateway/server.impl.ts, src/config/io.ts, docker-compose.yml."
     send: false
 ---
@@ -88,16 +88,49 @@ pnpm test src/config/
 
 Create branch: `occc/phase-8-lockdown`
 
-## Output Contract (MANDATORY)
+---
 
-When you finish implementation, you MUST end your response with:
+## Output Contract — MANDATORY STOP GATE
+
+**STOP**: You MUST output the implementation summary below BEFORE selecting any handoff button or ending your response. Incomplete responses without the summary are invalid.
+
+When you finish implementation, output this summary then the handoff:
+
+```markdown
+## Implementation Summary for Human Review
+
+**Phase**: 8 — OpenClaw Lockdown
+**Branch**: occc/phase-8-lockdown
+**Files Created/Modified**:
+
+- <file1> — <brief description>
+- <file2> — <brief description>
+
+**Key Changes**:
+
+- <change 1>
+- <change 2>
+
+**Backward Compatibility**:
+
+- <how existing behavior is preserved>
+
+**Opt-in Gating**:
+
+- Environment variable: `OPENCLAW_OCCC_LOCKDOWN=1`
+- Behavior when unset: <description>
+
+**Verification Status**: Ran `pnpm tsgo && pnpm check && pnpm test src/gateway/ && pnpm test src/config/` — PASS/FAIL
+```
+
+Then end with:
 
 ```markdown
 ## Next Step
 
-Phase 8 lockdown implementation complete. This is the highest-risk phase — invoke **occc-reviewer** for thorough review:
+Phase 8 lockdown implementation complete. This is the highest-risk phase — invoke **occc-reviewer-gh** for thorough review:
 
-Select the **Review Lockdown** handoff button, or switch to the `occc-reviewer` agent and send:
+Select the **Review Lockdown** handoff button, or switch to the `occc-reviewer-gh` agent and send:
 
     Review Phase 8 (OpenClaw Lockdown) core changes.
     Files: src/entry.ts, src/gateway/server.impl.ts, src/config/io.ts, src/agents/skills-install.ts
