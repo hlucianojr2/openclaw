@@ -7,6 +7,7 @@ import { normalizeWindowsArgv } from "./cli/windows-argv.js";
 import { isTruthyEnvValue, normalizeEnv } from "./infra/env.js";
 import { installProcessWarningFilter } from "./infra/warning-filter.js";
 import { attachChildProcessBridge } from "./process/child-process-bridge.js";
+import { assertNotLocked, OcccLockdownError } from "./security/occc-lockdown.js";
 
 process.title = "openclaw";
 installProcessWarningFilter();
@@ -83,6 +84,17 @@ function ensureExperimentalWarningSuppressed(): boolean {
 process.argv = normalizeWindowsArgv(process.argv);
 
 if (!ensureExperimentalWarningSuppressed()) {
+  // OCCC Lockdown — block direct CLI invocation in locked containers.
+  try {
+    assertNotLocked();
+  } catch (err) {
+    if (err instanceof OcccLockdownError) {
+      console.error("[openclaw] Direct CLI access is disabled. Use the OpenClaw Command Center.");
+      process.exit(78); // EX_CONFIG
+    }
+    throw err;
+  }
+
   const parsed = parseCliProfileArgs(process.argv);
   if (!parsed.ok) {
     // Keep it simple; Commander will handle rich help/errors after we strip flags.

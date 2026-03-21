@@ -1124,6 +1124,11 @@ export async function writeConfigFile(
   cfg: OpenClawConfig,
   options: ConfigWriteOptions = {},
 ): Promise<void> {
+  // OCCC Lockdown — block config writes in locked containers without valid token.
+  // Deferred import to avoid circular dependency and keep overhead minimal.
+  const { assertNotLocked } = await import("../security/occc-lockdown.js");
+  assertNotLocked();
+
   const io = createConfigIO();
   const sameConfigPath =
     options.expectedConfigPath === undefined || options.expectedConfigPath === io.configPath;

@@ -1,11 +1,7 @@
 ---
 name: occc-tester-gh
 description: Writes tests and runs verification gates for OCCC. TypeScript check, lint, unit/integration tests. Verification agent invoked after every review pass.
-tools:
-  - read
-  - edit
-  - search
-  - execute
+tools:[read,edit,search,execute]
 handoffs:
   - label: Human Review
     agent: occc-sprint-planner-gh

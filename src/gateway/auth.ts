@@ -19,7 +19,7 @@ import {
   resolveGatewayClientIp,
 } from "./net.js";
 
-export type ResolvedGatewayAuthMode = "none" | "token" | "password" | "trusted-proxy";
+export type ResolvedGatewayAuthMode = "none" | "token" | "password" | "trusted-proxy" | "occc";
 
 export type ResolvedGatewayAuth = {
   mode: ResolvedGatewayAuthMode;
@@ -31,7 +31,7 @@ export type ResolvedGatewayAuth = {
 
 export type GatewayAuthResult = {
   ok: boolean;
-  method?: "none" | "token" | "password" | "tailscale" | "device-token" | "trusted-proxy";
+  method?: "none" | "token" | "password" | "tailscale" | "device-token" | "trusted-proxy" | "occc";
   user?: string;
   reason?: string;
   /** Present when the request was blocked by the rate limiter. */
@@ -345,6 +345,25 @@ export async function authorizeGatewayConnect(params: {
         user: tailscaleCheck.user.login,
       };
     }
+  }
+
+  // OCCC control plane auth mode — validates HMAC-SHA256 signed tokens from the Command Center.
+  if (auth.mode === "occc") {
+    const { validateOcccToken } = await import("../security/occc-lockdown.js");
+    const occcSecret = process.env.OPENCLAW_OCCC_SECRET;
+    if (!occcSecret) {
+      return { ok: false, reason: "occc_secret_missing" };
+    }
+    if (!connectAuth?.token) {
+      limiter?.recordFailure(ip, rateLimitScope);
+      return { ok: false, reason: "occc_token_missing" };
+    }
+    if (!validateOcccToken(connectAuth.token, occcSecret)) {
+      limiter?.recordFailure(ip, rateLimitScope);
+      return { ok: false, reason: "occc_token_invalid" };
+    }
+    limiter?.reset(ip, rateLimitScope);
+    return { ok: true, method: "occc" };
   }
 
   if (auth.mode === "token") {

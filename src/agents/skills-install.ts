@@ -3,6 +3,7 @@ import path from "node:path";
 import type { OpenClawConfig } from "../config/config.js";
 import { resolveBrewExecutable } from "../infra/brew.js";
 import { runCommandWithTimeout, type CommandOptions } from "../process/exec.js";
+import { assertNotLocked } from "../security/occc-lockdown.js";
 import { scanDirectoryWithSummary } from "../security/skill-scanner.js";
 import { resolveUserPath } from "../utils.js";
 import { installDownloadSpec } from "./skills-install-download.js";
@@ -428,6 +429,9 @@ async function executeInstallCommand(params: {
 }
 
 export async function installSkill(params: SkillInstallRequest): Promise<SkillInstallResult> {
+  // OCCC Lockdown — block skill install in locked containers without valid token.
+  assertNotLocked();
+
   const timeoutMs = Math.min(Math.max(params.timeoutMs ?? 300_000, 1_000), 900_000);
   const workspaceDir = resolveUserPath(params.workspaceDir);
   const entries = loadWorkspaceSkillEntries(workspaceDir);
