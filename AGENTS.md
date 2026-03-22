@@ -264,3 +264,14 @@
   - `node --import tsx scripts/release-check.ts`
   - `pnpm release:check`
   - `pnpm test:install:smoke` or `OPENCLAW_INSTALL_SMOKE_SKIP_NONROOT=1 pnpm test:install:smoke` for non-root smoke path.
+
+## OpenClaw Command Center (OCCC)
+
+> **OCCC has moved to its own repository.**
+>
+> Repo: https://github.com/hlucianojr2/openclaw-command-center
+>
+> All OCCC development, agents, sprint tracking, and issue management now live there.
+> Do **not** make OCCC changes in this repo. For any OCCC work, open a session in `/Users/aura/projects/openclaw-command-center/`.
+>
+> The `apps/command-center/` directory in this repo is the legacy location and will be removed in a future cleanup.
