@@ -1423,6 +1423,19 @@ export async function writeConfigFile(
   cfg: OpenClawConfig,
   options: ConfigWriteOptions = {},
 ): Promise<void> {
+  // ── OCCC Lockdown — Config Write Protection (Phase 8) ─────────────────────
+  // When OPENCLAW_OCCC_LOCKDOWN=1, config writes are gated behind
+  // OPENCLAW_OCCC_ACTIVE=1. This ensures that config is only modified by
+  // the OpenClaw Command Center (which sets OPENCLAW_OCCC_ACTIVE when active).
+  //
+  // STRICTLY OPT-IN: when OPENCLAW_OCCC_LOCKDOWN is not set or falsy, this
+  // check is skipped entirely and all existing write behaviour is unchanged.
+  if (process.env.OPENCLAW_OCCC_LOCKDOWN === "1" && process.env.OPENCLAW_OCCC_ACTIVE !== "1") {
+    throw new Error(
+      "Config modification blocked: use OpenClaw Command Center (OPENCLAW_OCCC_LOCKDOWN is active)",
+    );
+  }
+  // ──────────────────────────────────────────────────────────────────────────
   const io = createConfigIO();
   let nextCfg = cfg;
   const hadRuntimeSnapshot = Boolean(runtimeConfigSnapshot);

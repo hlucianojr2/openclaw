@@ -258,13 +258,41 @@ export function resolveGatewayAuth(params: {
   const password = resolvedCredentials.password;
   const trustedProxy = authConfig.trustedProxy;
 
+  // ── Phase 8: OCCC auth mode resolution ────────────────────────────────────
+  // When auth.mode = "occc" AND OPENCLAW_OCCC_LOCKDOWN=1, the gateway resolves
+  // to token mode using the OPENCLAW_OCCC_TOKEN env var as the expected token.
+  // This is the short-lived JWT that OCCC injects when starting the container.
+  //
+  // STRICTLY OPT-IN: only active when both conditions are true. All other modes
+  // (token, password, trusted-proxy) are completely unaffected.
+  const rawConfigMode = authOverride?.mode ?? authConfig.mode;
+  const isOcccMode =
+    rawConfigMode === "occc" && (params.env ?? process.env).OPENCLAW_OCCC_LOCKDOWN === "1";
+  const occcToken = isOcccMode
+    ? ((params.env ?? process.env).OPENCLAW_OCCC_TOKEN ?? "")
+    : undefined;
+  // ──────────────────────────────────────────────────────────────────────────
+
   let mode: ResolvedGatewayAuth["mode"];
   let modeSource: ResolvedGatewayAuth["modeSource"];
-  if (authOverride?.mode !== undefined) {
+  if (isOcccMode) {
+    // Map occc → token so all existing token-mode auth logic applies unchanged.
+    mode = "token";
+    modeSource = "override";
+  } else if (authOverride?.mode !== undefined && authOverride.mode !== "occc") {
+    // Type narrowing: exclude "occc" so mode is assignable to ResolvedGatewayAuthMode.
     mode = authOverride.mode;
     modeSource = "override";
-  } else if (authConfig.mode) {
+  } else if (authOverride?.mode === "occc") {
+    // occc override but lockdown env not set — fail closed (no valid token).
+    mode = "token";
+    modeSource = "override";
+  } else if (authConfig.mode && authConfig.mode !== "occc") {
     mode = authConfig.mode;
+    modeSource = "config";
+  } else if (authConfig.mode === "occc") {
+    // occc configured but OPENCLAW_OCCC_LOCKDOWN not set — fail closed.
+    mode = "token";
     modeSource = "config";
   } else if (password) {
     mode = "password";
@@ -284,7 +312,9 @@ export function resolveGatewayAuth(params: {
   return {
     mode,
     modeSource,
-    token,
+    // When in OCCC mode, use the env-injected JWT as the expected gateway token.
+    // The connecting OCCC client presents this same JWT as a bearer token.
+    token: occcToken ?? token,
     password,
     allowTailscale,
     trustedProxy,
