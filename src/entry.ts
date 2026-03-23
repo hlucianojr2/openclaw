@@ -43,6 +43,29 @@ if (
   process.title = "openclaw";
   installProcessWarningFilter();
   normalizeEnv();
+
+  // ── OCCC Lockdown Gate (Phase 8) ──────────────────────────────────────────
+  // When OPENCLAW_OCCC_LOCKDOWN=1 the CLI may only be invoked by the OpenClaw
+  // Command Center (OCCC), which injects a short-lived signed JWT as
+  // OPENCLAW_OCCC_TOKEN. Direct invocations without a valid token are blocked.
+  //
+  // This check is STRICTLY OPT-IN: when OPENCLAW_OCCC_LOCKDOWN is unset or
+  // falsy, all existing behaviour is completely unchanged.
+  if (isTruthyEnvValue(process.env.OPENCLAW_OCCC_LOCKDOWN)) {
+    if (!process.env.OPENCLAW_OCCC_TOKEN) {
+      console.error("[openclaw] Direct CLI access is disabled. Use the OpenClaw Command Center.");
+      process.exit(78); // EX_CONFIG
+    }
+    // Token format validation (3-part JWT) — full cryptographic verification
+    // happens inside OpenClaw's gateway; here we only guard against completely
+    // absent or structurally invalid tokens to give a clear error message.
+    const parts = process.env.OPENCLAW_OCCC_TOKEN.split(".");
+    if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) {
+      console.error("[openclaw] Invalid OPENCLAW_OCCC_TOKEN. Use the OpenClaw Command Center.");
+      process.exit(78); // EX_CONFIG
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
   if (!isTruthyEnvValue(process.env.NODE_DISABLE_COMPILE_CACHE)) {
     try {
       enableCompileCache();
